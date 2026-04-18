@@ -1,6 +1,6 @@
-# SMS snowball · OpenAlex + optional triage
+# SMS snowball · OpenAlex + AI triage
 
-Local web UI for **backward + forward citation snowballing** using the [OpenAlex API](https://openalex.org), with optional **advisory** screening hints via **Google Gemini** ([AI Studio free tier](https://aistudio.google.com/apikey)) or **Anthropic Claude** (not inclusion decisions).
+Local web UI for **backward + forward citation snowballing** using the [OpenAlex API](https://openalex.org), with **advisory** screening hints via **Google Gemini** ([AI Studio free tier](https://aistudio.google.com/apikey)) or **Anthropic Claude** (not inclusion decisions).
 
 ## Requirements
 
@@ -10,7 +10,7 @@ Local web UI for **backward + forward citation snowballing** using the [OpenAlex
 ## Run
 
 ```bash
-cd plan-b
+cd sms-snowballing-with-triage
 npm install
 npm start
 ```

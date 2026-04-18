@@ -187,7 +187,7 @@ function updateCharts(rows) {
     data = [rows.length];
     colors = [muted];
     captionEl.textContent =
-      `${rows.length} paper(s)—run Advisory AI triage above for estimated relevance bands.`;
+      `${rows.length} candidate paper(s)—Advisory AI triage above fills estimated relevance bands on this chart.`;
     summaryEl.textContent =
       "AI hints estimate fit to your IC/EC so you can prioritize manual screening faster (they are not inclusion decisions).";
   } else if (rel.totalLabeled === 0 && rel.emptyBand > 0) {

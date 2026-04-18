@@ -4,17 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <title>SMS · OpenAlex snowball + triage</title>
+  <title>SMS · OpenAlex snowball + AI triage</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Systematic mapping · citation snowball</h1>
+      <h1>Systematic mapping · snowball + advisory AI triage</h1>
       <p class="lede">
         Resolve seeds via <a href="https://openalex.org" target="_blank" rel="noreferrer">OpenAlex</a>,
-        expand backward references and forward citations for a fixed number of rounds, then optionally
-        get <strong>advisory</strong> LLM screening hints. This does not perform inclusion decisions.
+        expand backward references and forward citations for a fixed number of rounds to build your candidate corpus,
+        then run <strong>advisory AI triage</strong> with your IC/EC and research questions—snowball discovers citation-linked papers;
+        triage estimates relevance so you can prioritize screening. This does not perform inclusion decisions.
       </p>
     </header>
 
@@ -42,7 +43,7 @@ W2741809807"></textarea>
     </section>
 
     <section class="card">
-      <h2>Advisory AI triage (optional)</h2>
+      <h2>Advisory AI triage</h2>
       <p class="hint">
         Paste your topic and inclusion/exclusion logic in natural language. Outputs are hints only—manual screening still required.
         After triage, the <strong>estimated relevance</strong> chart in Results updates; tighten your criteria text and rerun if the mix looks off.
@@ -69,8 +70,8 @@ W2741809807"></textarea>
       <p class="hint"><span id="audit"></span></p>
       <p class="hint expansion-detail" id="expansionDetail"></p>
       <div class="callout" id="chartCallout">
-        <strong>Better relevance signal:</strong> Snowballing only discovers citation-linked papers; it does not measure topic fit.
-        Run <strong>Advisory AI triage</strong> above with your IC/EC and RQs so the chart below can show an <em>estimated</em> relevance mix (advisory—manual screening stays authoritative).
+        <strong>Why triage matters:</strong> Snowballing finds citation-linked papers but not topic fit by itself.
+        <strong>Advisory AI triage</strong> above turns your corpus into an <em>estimated</em> relevance mix for the chart below (advisory—manual screening stays authoritative).
       </div>
       <div class="chart-grid">
         <div class="chart-box">
@@ -82,7 +83,7 @@ W2741809807"></textarea>
         </div>
         <div class="chart-box">
           <h3>Estimated relevance (AI triage)</h3>
-          <p class="chart-caption" id="relevanceCaption">Run snowball, then triage to populate this chart.</p>
+          <p class="chart-caption" id="relevanceCaption">Populate after snowball + triage—this chart is the triage signal.</p>
           <div class="chart-canvas-wrap">
             <canvas id="chartRelevance" height="220"></canvas>
           </div>
