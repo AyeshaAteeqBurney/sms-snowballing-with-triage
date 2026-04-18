@@ -90,36 +90,40 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 1rem;
-  row-gap: 0.6rem;
-  align-items: start;
+  row-gap: 1rem;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
 }
 
-/* Avoid gap + .card margin stacking (was double vertical space between stacked cards). */
 .main-grid > .card {
   margin-bottom: 0;
   min-width: 0;
 }
 
-@media (min-width: 961px) {
-  .main-grid {
-    row-gap: 0;
-  }
+/* Two pillars (snowball | triage); config + results inside one bordered card each. */
+.pillar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
 
-  /* Flush stacked cards per column (snowball / triage): no gutter and one continuous panel. */
-  .main-grid > .grid-snowball-config,
-  .main-grid > .grid-triage-config {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
+.pillar > .pillar__block:first-child:not(:only-child) {
+  padding: 1.15rem 1.2rem 1rem;
+}
 
-  .main-grid > .section-snow-results,
-  .main-grid > .section-triage-results {
-    border-top: none;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-  }
+.pillar > .pillar__block:last-child:not(:only-child) {
+  padding: 1.15rem 1.2rem;
+  border-top: 1px solid var(--border);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pillar > .pillar__block:only-child {
+  padding: 1.15rem 1.2rem;
 }
 
 @media (max-width: 960px) {
