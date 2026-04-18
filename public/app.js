@@ -495,6 +495,20 @@ function formatTriageRunningFromProgress(ev) {
   if (phase === "triage_start") {
     pct = 0;
     detail = `queued ${total} papers (~${wc} batches)`;
+  } else if (phase === "triage_pacing") {
+    pct = 3;
+    const sec = Math.max(1, Math.ceil((Number(ev.waitMs) || 0) / 1000));
+    detail = `spacing Gemini calls (${sec}s) to respect free-tier request limits`;
+  } else if (phase === "triage_rate_limit_wait") {
+    pct = Math.min(
+      94,
+      Math.max(
+        5,
+        Math.round((100 * (Number(ev.attempt) || 1)) / Math.max(1, Number(ev.maxAttempts) || 12))
+      )
+    );
+    const sec = Math.max(1, Math.ceil((Number(ev.waitMs) || 0) / 1000));
+    detail = `Gemini rate limit — pausing ~${sec}s (retry ${Number(ev.attempt) || 1}/${Number(ev.maxAttempts) || 12}). Do not close this tab.`;
   } else if (phase === "triage_wave_start") {
     const wi = Math.max(1, Number(ev.waveIndex) || 1);
     pct = Math.max(1, Math.min(97, Math.round((100 * wi) / wc)));
@@ -517,7 +531,7 @@ function formatTriageRunningFromProgress(ev) {
 function formatTriageErrorHint(err) {
   const msg = String(err?.message ?? err ?? "");
   if (/quota|rate|429|ResourceExhausted|free_tier|exceeded your current quota/i.test(msg)) {
-    return `${msg} — Gemini free tier allows only a small number of requests per minute; triage runs one batch at a time with spacing. Try Flash-Lite, fewer rows, or billing / a higher quota on AI Studio.`;
+    return `${msg} — The free tier caps requests per minute (~20 for Flash-Lite). This app spaces calls and waits on 429s; if it still fails, wait one minute and retry, use another model key, or enable billing on AI Studio for higher limits.`;
   }
   return msg;
 }
@@ -550,7 +564,9 @@ async function consumeTriageNdjson(res, onProgressEvent) {
         if (
           pr.phase === "triage_start" ||
           pr.phase === "triage_wave_start" ||
-          pr.phase === "triage_progress"
+          pr.phase === "triage_progress" ||
+          pr.phase === "triage_pacing" ||
+          pr.phase === "triage_rate_limit_wait"
         ) {
           onProgressEvent(pr);
         }

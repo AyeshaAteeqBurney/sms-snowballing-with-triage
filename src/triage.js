@@ -76,19 +76,48 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Parses "Please retry in 38.07s" from Gemini error messages. */
+/** Parses "Please retry in 38.07s" (and variants) from Gemini error messages. */
 function parseRetryDelayMsFromMessage(message) {
   if (!message) return null;
-  const m = String(message).match(/retry in\s+([\d.]+)\s*s/i);
-  if (!m) return null;
-  return Math.ceil(Number(m[1]) * 1000);
+  const s = String(message);
+  const patterns = [
+    /retry in\s+([\d.]+)\s*s/i,
+    /retry in\s+([\d.]+)\s*seconds?/i,
+    /retry after\s+([\d.]+)\s*s/i,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) {
+      const sec = Number(m[1]);
+      if (Number.isFinite(sec) && sec >= 0) return Math.ceil(sec * 1000);
+    }
+  }
+  return null;
+}
+
+/** Some 429 payloads include RetryInfo in `details`. */
+function parseRetryDelayMsFromGeminiJson(data) {
+  const details = data?.error?.details;
+  if (!Array.isArray(details)) return null;
+  for (const d of details) {
+    if (d && typeof d.retryDelay === "string") {
+      const m = d.retryDelay.trim().match(/^([\d.]+)s$/);
+      if (m) {
+        const sec = Number(m[1]);
+        if (Number.isFinite(sec)) return Math.ceil(sec * 1000);
+      }
+    }
+  }
+  return null;
 }
 
 /**
  * Calls generateContent with retries on 429 / quota / rate limit.
+ * Free-tier 429s must not use short exponential backoff (burns the per-minute cap).
  */
-async function fetchGeminiGenerateContent(url, body, signal) {
-  const maxAttempts = 8;
+async function fetchGeminiGenerateContent(url, body, signal, rateLimitCallbacks) {
+  const maxAttempts = 12;
+  const onRateLimitWait = rateLimitCallbacks?.onRateLimitWait;
   let lastText = "";
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -106,7 +135,15 @@ async function fetchGeminiGenerateContent(url, body, signal) {
       data = JSON.parse(raw);
     } catch {
       if (!res.ok && attempt < maxAttempts - 1) {
-        await sleep(2000 * (attempt + 1));
+        const backoff = res.status === 429 ? 60_000 : 2000 * (attempt + 1);
+        onRateLimitWait?.({
+          phase: "triage_rate_limit_wait",
+          attempt: attempt + 1,
+          maxAttempts,
+          waitMs: backoff,
+          reason: res.status === 429 ? "429_non_json" : "non_json_error",
+        });
+        await sleep(backoff);
         continue;
       }
       throw new Error(`Gemini error (non-JSON): ${raw.slice(0, 400)}`);
@@ -131,18 +168,57 @@ async function fetchGeminiGenerateContent(url, body, signal) {
     }
 
     const retryAfterHdr = res.headers.get("retry-after");
+    const parsedFromMsg =
+      parseRetryDelayMsFromMessage(msg) ?? parseRetryDelayMsFromGeminiJson(data);
     let waitMs =
-      parseRetryDelayMsFromMessage(msg) ??
+      parsedFromMsg ??
       (retryAfterHdr && /^\d+$/.test(retryAfterHdr.trim())
         ? Number(retryAfterHdr) * 1000
-        : null) ??
-      Math.min(90_000, 3000 * 2 ** attempt);
+        : null);
 
-    waitMs = Math.min(120_000, Math.max(1500, waitMs));
+    const quotaLike =
+      /quota|free_tier|free tier|generate_content_free_tier|ResourceExhausted/i.test(
+        msg
+      );
+
+    /* If Google did not give a delay, 429/quota almost always needs ~1 minute on free tier. */
+    if (waitMs == null) {
+      waitMs =
+        res.status === 429 || quotaLike
+          ? 62_000
+          : Math.min(90_000, 3000 * 2 ** attempt);
+    } else {
+      waitMs += 2500;
+    }
+
+    waitMs = Math.min(125_000, Math.max(2000, waitMs));
+
+    onRateLimitWait?.({
+      phase: "triage_rate_limit_wait",
+      attempt: attempt + 1,
+      maxAttempts,
+      waitMs,
+      reason: "rate_limited",
+    });
     await sleep(waitMs);
   }
 
   throw new Error(lastText.slice(0, 500));
+}
+
+/** Minimum gap between successful Gemini triage calls (rolling free-tier RPM). */
+let geminiNextAllowedAt = 0;
+
+async function paceGeminiCalls(minIntervalMs, emit) {
+  const now = Date.now();
+  if (now >= geminiNextAllowedAt) return;
+  const waitMs = geminiNextAllowedAt - now;
+  emit?.({ phase: "triage_pacing", waitMs });
+  await sleep(waitMs);
+}
+
+function reserveNextGeminiSlot(minIntervalMs) {
+  geminiNextAllowedAt = Math.max(geminiNextAllowedAt, Date.now() + minIntervalMs);
 }
 
 /**
@@ -281,25 +357,26 @@ export async function triageRowsWithGemini(rows, options) {
   }
 
   /**
-   * Free tier: e.g. ~20 generateContent calls/min for 2.5 Flash. ~3.1s between starts can still
-   * hit 429 in a tight rolling window. One call at a time, 4s+ pauses, and slightly larger
-   * batches = fewer total calls. Override: GEMINI_TRIAGE_BATCH, GEMINI_TRIAGE_PAUSE_MS, GEMINI_TRIAGE_PARALLEL.
+   * Free tier: ~20 generateContent RPM for Flash-Lite / Flash. Never parallelize Gemini calls
+   * (overlapping requests burn the same limit). Override: GEMINI_TRIAGE_BATCH, GEMINI_TRIAGE_PAUSE_MS,
+   * GEMINI_TRIAGE_MIN_INTERVAL_MS (default ~3.3s between completed calls).
    */
   const BATCH = Math.min(
-    20,
-    Math.max(4, Number(process.env.GEMINI_TRIAGE_BATCH) || 14)
+    10,
+    Math.max(4, Number(process.env.GEMINI_TRIAGE_BATCH) || 10)
   );
-  const PARALLEL = Math.min(
-    2,
-    Math.max(1, Number(process.env.GEMINI_TRIAGE_PARALLEL) || 1)
+  const PARALLEL = 1;
+  const minIntervalMs = Math.max(
+    2500,
+    Number(process.env.GEMINI_TRIAGE_MIN_INTERVAL_MS) >= 0
+      ? Number(process.env.GEMINI_TRIAGE_MIN_INTERVAL_MS)
+      : 3300
   );
   const pauseMsBetweenWaves = Math.max(
     0,
     Number(process.env.GEMINI_TRIAGE_PAUSE_MS) >= 0
       ? Number(process.env.GEMINI_TRIAGE_PAUSE_MS)
-      : PARALLEL <= 1
-        ? 4000
-        : 800
+      : 5000
   );
 
   const enriched = [];
@@ -336,24 +413,43 @@ export async function triageRowsWithGemini(rows, options) {
       },
     };
 
-    const data = await fetchGeminiGenerateContent(url, body, signal);
+    const emitChild = (ev) =>
+      onProgress?.({
+        ...ev,
+        totalRows,
+        processedRows: enriched.length,
+        waveCountApprox,
+      });
 
-    const cand = data.candidates?.[0];
-    const text =
-      cand?.content?.parts?.map((p) => p.text || "").join("") || "";
+    await paceGeminiCalls(minIntervalMs, emitChild);
 
-    if (!text.trim()) {
-      const reason =
-        cand?.finishReason ||
-        data.promptFeedback?.blockReason ||
-        "empty";
-      throw new Error(
-        `Gemini returned no text (finish: ${reason}). Retry or shorten the batch.`
-      );
+    try {
+      const data = await fetchGeminiGenerateContent(url, body, signal, {
+        onRateLimitWait: emitChild,
+      });
+
+      const cand = data.candidates?.[0];
+      const text =
+        cand?.content?.parts?.map((p) => p.text || "").join("") || "";
+
+      if (!text.trim()) {
+        const reason =
+          cand?.finishReason ||
+          data.promptFeedback?.blockReason ||
+          "empty";
+        throw new Error(
+          `Gemini returned no text (finish: ${reason}). Retry or shorten the batch.`
+        );
+      }
+
+      const parsed = parseJsonArrayFromModelText(text.trim());
+      const merged = mergeSliceResults(slice, parsed, model, "gemini");
+      reserveNextGeminiSlot(minIntervalMs);
+      return merged;
+    } catch (err) {
+      reserveNextGeminiSlot(minIntervalMs);
+      throw err;
     }
-
-    const parsed = parseJsonArrayFromModelText(text.trim());
-    return mergeSliceResults(slice, parsed, model, "gemini");
   }
 
   for (let base = 0; base < rows.length; base += waveStride) {
@@ -376,7 +472,10 @@ export async function triageRowsWithGemini(rows, options) {
       if (start >= rows.length) break;
       chunks.push(rows.slice(start, Math.min(start + BATCH, rows.length)));
     }
-    const parts = await Promise.all(chunks.map((slice) => runSlice(slice)));
+    const parts = [];
+    for (const sl of chunks) {
+      parts.push(await runSlice(sl));
+    }
     for (const part of parts) enriched.push(...part);
 
     onProgress?.({
