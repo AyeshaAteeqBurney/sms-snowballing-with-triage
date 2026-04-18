@@ -5,6 +5,43 @@
 
 const BASE = "https://api.openalex.org";
 
+/** Default per-request ceiling so hung sockets do not stall snowball indefinitely (ms). */
+const REQUEST_TIMEOUT_MS = 120000;
+
+/** Combine abort signals (Node 18–21 lacks AbortSignal.any; without this, fetch timeouts are ignored). */
+function abortSignalAny(signals) {
+  const list = signals.filter(Boolean);
+  if (list.length === 0) return undefined;
+  if (list.length === 1) return list[0];
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
+    return AbortSignal.any(list);
+  }
+  const merged = new AbortController();
+  for (const s of list) {
+    if (s.aborted) {
+      merged.abort();
+      return merged.signal;
+    }
+    s.addEventListener("abort", () => merged.abort(), { once: true });
+  }
+  return merged.signal;
+}
+
+function combineAbortSignals(parent, timeoutMs) {
+  if (!timeoutMs || timeoutMs <= 0) return parent;
+  const T =
+    typeof AbortSignal !== "undefined" && AbortSignal.timeout
+      ? AbortSignal.timeout(timeoutMs)
+      : null;
+  if (!T) return parent;
+  if (!parent) return T;
+  return abortSignalAny([parent, T]);
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function withMailto(url, mailto) {
   if (!mailto) return url;
   const u = new URL(url);
@@ -47,17 +84,44 @@ export function graphRichnessScore(w) {
   return cites * 100000 + rc * 1000 + refs;
 }
 
-export async function fetchJson(url, { mailto, signal } = {}) {
+export async function fetchJson(
+  url,
+  { mailto, signal, timeoutMs = REQUEST_TIMEOUT_MS } = {}
+) {
   const finalUrl = withMailto(url, mailto);
-  const res = await fetch(finalUrl, {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenAlex ${res.status}: ${text.slice(0, 500)}`);
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const combined = combineAbortSignals(signal, timeoutMs);
+    let res;
+    try {
+      res = await fetch(finalUrl, {
+        signal: combined,
+        headers: { Accept: "application/json" },
+      });
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      if (attempt === maxAttempts) throw e;
+      await sleep(1500 * attempt);
+      continue;
+    }
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      await res.text().catch(() => {});
+      const ra = res.headers.get("retry-after");
+      const waitSec = ra && /^\d+$/.test(ra.trim()) ? Number(ra.trim()) : 2 * attempt;
+      await sleep(Math.min(60000, waitSec * 1000 || 2000 * attempt));
+      continue;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenAlex ${res.status}: ${text.slice(0, 500)}`);
+    }
+    return res.json();
   }
-  return res.json();
+
+  throw new Error("OpenAlex: fetch failed after retries.");
 }
 
 /**
@@ -208,23 +272,36 @@ export async function getWorkByDoi(doi, { mailto, signal } = {}) {
   return r.work;
 }
 
+/** Parallel GET /works/{id}; keep moderate to reduce 429 / throttling. */
+const WORK_FETCH_CONCURRENCY = 4;
+
 /**
- * Batch fetch works by W-id (sequential with small chunking to stay polite)
+ * Batch fetch works by W-id with bounded parallelism (OpenAlex-friendly).
  */
-export async function getWorksByIds(ids, { mailto, signal, onProgress } = {}) {
+export async function getWorksByIds(
+  ids,
+  { mailto, signal, onProgress, concurrency = WORK_FETCH_CONCURRENCY } = {}
+) {
   const out = new Map();
   const unique = [...new Set(ids.map((i) => i.replace(/^w/i, "W")))];
+  let completed = 0;
+  const total = unique.length;
 
-  for (let i = 0; i < unique.length; i += 1) {
+  for (let i = 0; i < unique.length; i += concurrency) {
     if (signal?.aborted) break;
-    const id = unique[i];
-    try {
-      const w = await getWork(id, { mailto, signal });
-      if (w) out.set(id, w);
-    } catch {
-      // missing or hidden
-    }
-    onProgress?.({ done: i + 1, total: unique.length });
+    const chunk = unique.slice(i, i + concurrency);
+    await Promise.all(
+      chunk.map(async (id) => {
+        try {
+          const w = await getWork(id, { mailto, signal });
+          if (w) out.set(id, w);
+        } catch {
+          /* missing or hidden */
+        }
+        completed += 1;
+        onProgress?.({ done: completed, total });
+      })
+    );
   }
   return out;
 }

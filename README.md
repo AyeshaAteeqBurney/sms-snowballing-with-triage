@@ -5,7 +5,9 @@ Local web UI for **backward + forward citation snowballing** using the [OpenAlex
 ## Requirements
 
 - Node.js 18+
-- Network access to `api.openalex.org`, and if you use triage: `generativelanguage.googleapis.com` (Gemini) and/or `api.anthropic.com` (Claude)
+- **Snowball:** network access to `api.openalex.org`
+- **Triage:** `generativelanguage.googleapis.com` (Gemini) and/or `api.anthropic.com` (Claude)
+- **CSV upload:** seeds snowball via OpenAlex when DOIs or OpenAlex ids exist in the file; otherwise CSV-only rows until you add identifiers
 
 ## Run
 
@@ -19,11 +21,13 @@ Open **http://localhost:3847** (or the port printed in the terminal).
 
 ## What to enter
 
-1. **Seeds:** DOIs (`10.x/…`), OpenAlex ids (`W123…`), or `openalex.org/…` URLs — one per line.
-2. **Polite pool email:** recommended by OpenAlex (`mailto` query on every request).
-3. **Rounds / caps:** max expansion rounds after seeds; per-parent limits on backward references and forward citations to control volume.
+### Bibliography CSV → snowball + merge
 
-Export **CSV** from the UI after snowball (and again after triage for AI columns).
+Choose a CSV from your own search (e.g. deduplicated **Scopus** / **IEEE** export), set **round/cap** values, then click **Start import & snowball**. **Title** must be present. **Only the first 50 data rows** are processed per run (larger files are truncated with a warning). **DOI** and/or OpenAlex **W…** ids become **snowball seeds**—but only the **first 12 unique** identifiers are expanded (order follows the CSV); the rest are skipped for API cost, while **all** CSV rows are still merged into the table where they do not overlap the graph. OpenAlex is called with your **round/cap** settings. Matching works can get **abstracts** copied from your CSV when OpenAlex has none.
+
+If the file has **no** extractable identifiers, snowball is skipped and you keep CSV-only rows (add DOIs or OpenAlex ids and re-upload to expand).
+
+Export **CSV** from the UI after the run (and again after triage for AI columns).
 
 ## AI triage
 
@@ -35,6 +39,10 @@ Paste your topic and IC/EC / RQ text. Choose **Google Gemini** (default) or **An
 
 - Snowballing produces **candidate** works for manual title/abstract/full-text screening.
 - Document in your SMS protocol: databases used for seeds, snowball rounds, caps, OpenAlex retrieval date, and that AI outputs are advisory.
+
+## Performance note
+
+Snowball talks to OpenAlex many times **per seed** (expand backward references and forward cites). Using **dozens** of seeds from a long CSV multiplies runtime; this app caps **snowball seeds at 12** unique DOI/OpenAlex ids per run. Runs can still take **several minutes**. The code uses **parallel batched HTTP** for referenced-work lookups and parallel seed resolution; if OpenAlex returns **429** errors, reduce **max rounds** / caps or try again later.
 
 ## Troubleshooting “only 1 work” after snowball
 

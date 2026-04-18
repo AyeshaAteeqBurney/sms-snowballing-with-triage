@@ -12,104 +12,165 @@
     <header>
       <h1>Systematic mapping · snowball + advisory AI triage</h1>
       <p class="lede">
-        Resolve seeds via <a href="https://openalex.org" target="_blank" rel="noreferrer">OpenAlex</a>,
-        expand backward references and forward citations for a fixed number of rounds to build your candidate corpus,
-        then run <strong>advisory AI triage</strong> with your IC/EC and research questions—snowball discovers citation-linked papers;
-        triage estimates relevance so you can prioritize screening. This does not perform inclusion decisions.
+        <strong>Left column:</strong> upload a bibliography CSV and run OpenAlex snowballing.
+        <strong>Right column:</strong> upload your <strong>snowball export CSV</strong> (or load from the current run) and run AI triage in small batches.
+        Triage is limited to <strong>10 works per request</strong>—advance the start row and repeat; download triage CSV after each batch or use the accumulated export.
+        This does not perform inclusion decisions.
       </p>
     </header>
 
-    <section class="card">
-      <h2>Seeds & snowball parameters</h2>
-      <p class="hint">One DOI, OpenAlex <code>W</code> id, or <code>openalex.org/…</code> URL per line (or comma-separated).</p>
-      <textarea id="seeds" rows="6" placeholder="10.1234/example
-W2741809807"></textarea>
-      <div class="grid">
-        <label>Polite pool email (recommended)
-          <input type="email" id="mailto" placeholder="you@university.edu" />
+    <div class="main-grid">
+      <section class="card grid-snowball-config">
+        <h2>Bibliography CSV &amp; OpenAlex snowball</h2>
+        <p class="hint">
+          Choose a deduplicated export (e.g. Scopus / IEEE) with a <strong>Title</strong> column and <strong>DOI</strong> and/or OpenAlex <strong>W…</strong> id where possible.
+          Only the <strong>first 50 data rows</strong> are processed per run; larger files are truncated with a notice.
+          Snowball expansion uses at most <strong>12 unique DOIs / OpenAlex ids</strong> as seeds (first in file order); more identifiers in the sheet are skipped for speed but rows still merge into results when unmatched.
+          After <strong>Start import &amp; snowball</strong>, results appear below left and you can download the CSV for triage on the right.
+        </p>
+        <label class="inline">CSV file
+          <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
         </label>
-        <label>Max rounds
-          <input type="number" id="maxRounds" min="1" max="10" value="2" />
-        </label>
-        <label>Max backward refs per parent / round
-          <input type="number" id="maxBack" min="1" max="500" value="40" />
-        </label>
-        <label>Max forward cites per parent / round
-          <input type="number" id="maxFwd" min="1" max="500" value="60" />
-        </label>
-      </div>
-      <button type="button" class="primary" id="btnSnowball">Run snowball</button>
-      <p id="snowStatus" class="status" aria-live="polite"></p>
-    </section>
+        <p id="filePickHint" class="hint file-pick-hint" hidden></p>
+        <div class="grid snowball-caps-grid">
+          <label>Max rounds
+            <input type="number" id="maxRounds" min="1" max="10" value="2" />
+          </label>
+          <label>Max backward refs per parent / round
+            <input type="number" id="maxBack" min="1" max="500" value="40" />
+          </label>
+          <label>Max forward cites per parent / round
+            <input type="number" id="maxFwd" min="1" max="500" value="60" />
+          </label>
+        </div>
+        <button type="button" class="primary" id="btnStartSnowball" disabled>Start import &amp; snowball</button>
+        <div class="import-status-cluster" aria-live="polite">
+          <span id="importSpinner" class="import-spinner-host" hidden>
+            <span class="import-spinner" aria-hidden="true"></span>
+            <span class="visually-hidden">Import and snowball in progress</span>
+          </span>
+          <p id="importStatus" class="status"></p>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>Advisory AI triage</h2>
-      <p class="hint">
-        Paste your topic and inclusion/exclusion logic in natural language. Outputs are hints only—manual screening still required.
-        After triage, the <strong>estimated relevance</strong> chart in Results updates; tighten your criteria text and rerun if the mix looks off.
-      </p>
-      <textarea id="criteria" rows="8" placeholder="Topic + IC/EC + RQs…"></textarea>
-      <label>LLM provider
-        <select id="triageProvider">
-          <option value="gemini">Google Gemini (free tier · AI Studio)</option>
-          <option value="anthropic">Anthropic Claude</option>
-        </select>
-      </label>
-      <label id="llmKeyLabel"><span id="llmKeyLabelText">Google AI Studio API key (sent to this local server only; never stored)</span>
-        <input type="password" id="llmKey" autocomplete="off" />
-      </label>
-      <label class="inline">Model
-        <select id="model"></select>
-      </label>
-      <button type="button" class="primary" id="btnTriage" disabled>Run triage on results</button>
-      <p id="triageStatus" class="status" aria-live="polite"></p>
-    </section>
+      <section class="card grid-triage-config">
+        <h2>Advisory AI triage</h2>
+        <div class="callout callout-danger triage-limit-callout" role="note">
+          <strong>Batch limit:</strong> each triage request processes <strong>1–10 rows only</strong> (API-friendly). Choose start row and batch size, run triage, then advance and repeat. Download each batch from triage results or export the accumulated table.
+        </div>
+        <p class="hint">
+          Upload the <strong>snowball results CSV</strong> you exported from the left, or use <strong>Use snowball results from left</strong> after a run. Criteria are advisory only—manual screening stays authoritative.
+        </p>
+        <label>Triage CSV (snowball export or bibliography-style CSV)
+          <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" />
+        </label>
+        <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
+        <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Use snowball results from left</button>
+        <div class="grid triage-batch-grid">
+          <label>Start at row (1-based)
+            <input type="number" id="triageRowStart" min="1" value="1" />
+          </label>
+          <label>Rows this run (max 10)
+            <input type="number" id="triageBatchSize" min="1" max="10" value="10" />
+          </label>
+        </div>
+        <textarea id="criteria" rows="6" placeholder="Topic + IC/EC + RQs…"></textarea>
+        <label>LLM provider
+          <select id="triageProvider">
+            <option value="gemini">Google Gemini (free tier · AI Studio)</option>
+            <option value="anthropic">Anthropic Claude</option>
+          </select>
+        </label>
+        <label id="llmKeyLabel"><span id="llmKeyLabelText">Google AI Studio API key (sent to this local server only; never stored)</span>
+          <input type="password" id="llmKey" autocomplete="off" />
+        </label>
+        <label class="inline">Model
+          <select id="model"></select>
+        </label>
+        <button type="button" class="primary" id="btnTriage" disabled>Run triage on batch</button>
+        <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run and click “Use snowball results from left.”</p>
+        <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
+      </section>
 
-    <section class="card section-results">
-      <h2>Results</h2>
-      <p class="hint"><span id="audit"></span></p>
-      <p class="hint expansion-detail" id="expansionDetail"></p>
-      <div class="callout" id="chartCallout">
-        <strong>Why triage matters:</strong> Snowballing finds citation-linked papers but not topic fit by itself.
-        <strong>Advisory AI triage</strong> above turns your corpus into an <em>estimated</em> relevance mix for the chart below (advisory—manual screening stays authoritative).
-      </div>
-      <div class="chart-grid">
-        <div class="chart-box">
+      <section class="card section-snow-results">
+        <h2>Snowball results</h2>
+        <p class="hint"><span id="audit"></span></p>
+        <p class="hint expansion-detail" id="expansionDetail"></p>
+        <div class="chart-box chart-box--solo">
           <h3>Corpus shape (snowball)</h3>
           <p class="chart-caption">Papers by discovery round</p>
           <div class="chart-canvas-wrap">
-            <canvas id="chartRounds" height="220"></canvas>
+            <canvas id="chartRounds" height="200"></canvas>
           </div>
         </div>
-        <div class="chart-box">
+        <div class="actions">
+          <button type="button" class="secondary" id="btnCsvSnowball" disabled>Download snowball CSV</button>
+        </div>
+        <div class="table-pager" id="tablePagerSnowball" hidden>
+          <button type="button" class="secondary" id="btnTablePrevSnow">Previous</button>
+          <span id="tablePagerMetaSnow" class="pager-meta" aria-live="polite"></span>
+          <button type="button" class="secondary" id="btnTableNextSnow">Next</button>
+        </div>
+        <div class="table-wrap">
+          <table id="tblSnowball">
+            <thead>
+              <tr>
+                <th>Round</th>
+                <th>Dir</th>
+                <th>Year</th>
+                <th>DOI</th>
+                <th>Title</th>
+                <th>OpenAlex</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card section-triage-results">
+        <h2>Triage results</h2>
+        <div class="callout" id="chartCallout">
+          <strong>Why triage matters:</strong> Snowballing finds citation-linked papers but not topic fit by itself.
+          <strong>Advisory AI triage</strong> scores batches against your criteria (not inclusion decisions).
+        </div>
+        <p class="hint" id="triageAccumHint">No triage batches completed yet—run triage on a batch above.</p>
+        <div class="chart-box chart-box--solo">
           <h3>Estimated relevance (AI triage)</h3>
-          <p class="chart-caption" id="relevanceCaption">Populate after snowball + triage—this chart is the triage signal.</p>
+          <p class="chart-caption" id="relevanceCaption">Accumulated triaged rows appear here.</p>
           <div class="chart-canvas-wrap">
-            <canvas id="chartRelevance" height="220"></canvas>
+            <canvas id="chartRelevance" height="200"></canvas>
           </div>
           <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
         </div>
-      </div>
-      <div class="actions">
-        <button type="button" class="secondary" id="btnCsv" disabled>Download CSV</button>
-      </div>
-      <div class="table-wrap">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th>Round</th>
-              <th>Dir</th>
-              <th>Year</th>
-              <th>DOI</th>
-              <th>Title</th>
-              <th>OpenAlex</th>
-              <th>Link</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+        <div class="actions">
+          <button type="button" class="secondary" id="btnCsvTriage" disabled>Download triage CSV (accumulated)</button>
+        </div>
+        <div class="table-pager" id="tablePagerTriage" hidden>
+          <button type="button" class="secondary" id="btnTablePrevTriage">Previous</button>
+          <span id="tablePagerMetaTriage" class="pager-meta" aria-live="polite"></span>
+          <button type="button" class="secondary" id="btnTableNextTriage">Next</button>
+        </div>
+        <div class="table-wrap">
+          <table id="tblTriage">
+            <thead>
+              <tr>
+                <th>Round</th>
+                <th>Dir</th>
+                <th>Year</th>
+                <th>DOI</th>
+                <th>Title</th>
+                <th>OpenAlex</th>
+                <th>Relevance</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
 
     <footer>
       <p>For method reporting: cite OpenAlex usage and document rounds, caps, and that candidates require independent screening.</p>

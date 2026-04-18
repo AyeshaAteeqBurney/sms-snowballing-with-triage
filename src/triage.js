@@ -6,7 +6,7 @@
 export const TRIAGE_PROMPT_VERSION = "triage-v1";
 
 function compactRow(r) {
-  return {
+  const o = {
     openalex_id: r.openalex_id,
     doi: r.doi ?? "",
     title: r.title ?? "",
@@ -14,6 +14,9 @@ function compactRow(r) {
     direction: r.direction ?? "",
     discovered_round: r.discovered_round ?? "",
   };
+  const abs = String(r.abstract ?? "").trim();
+  if (abs) o.abstract = abs.slice(0, 4000);
+  return o;
 }
 
 function buildUserPrompt(criteriaText, payload) {
@@ -151,6 +154,7 @@ export async function triageRowsWithAnthropic(rows, options) {
     anthropicApiKey,
     model = "claude-sonnet-4-20250514",
     signal,
+    onProgress,
   } = options;
 
   if (!anthropicApiKey?.trim()) {
@@ -161,13 +165,12 @@ export async function triageRowsWithAnthropic(rows, options) {
   }
 
   const BATCH = 12;
-  const enriched = [];
+  /** Two batches in flight cuts wall time ~2× vs strict sequential (still polite to RPM). */
+  const PARALLEL = 2;
+  const pauseMsBetweenWaves = 350;
 
-  for (let i = 0; i < rows.length; i += BATCH) {
-    if (signal?.aborted) break;
-    const slice = rows.slice(i, i + BATCH);
+  async function runSlice(slice) {
     const payload = slice.map(compactRow);
-
     const userContent = buildUserPrompt(criteriaText, payload);
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -205,7 +208,53 @@ export async function triageRowsWithAnthropic(rows, options) {
       .trim();
 
     const parsed = parseJsonArrayFromModelText(text);
-    enriched.push(...mergeSliceResults(slice, parsed, model, "anthropic"));
+    return mergeSliceResults(slice, parsed, model, "anthropic");
+  }
+
+  const enriched = [];
+  const totalRows = rows.length;
+  const waveStride = BATCH * PARALLEL;
+  const waveCountApprox = Math.max(1, Math.ceil(rows.length / waveStride));
+
+  onProgress?.({
+    phase: "triage_start",
+    processedRows: 0,
+    totalRows,
+    waveCountApprox,
+  });
+
+  for (let base = 0; base < rows.length; base += waveStride) {
+    if (signal?.aborted) break;
+    const waveIndex = Math.floor(base / waveStride) + 1;
+    const batchEndExclusive = Math.min(base + waveStride, rows.length);
+    onProgress?.({
+      phase: "triage_wave_start",
+      waveIndex,
+      waveCountApprox,
+      rowFrom: base + 1,
+      rowTo: batchEndExclusive,
+      processedRows: enriched.length,
+      totalRows,
+    });
+
+    const chunks = [];
+    for (let k = 0; k < PARALLEL; k += 1) {
+      const start = base + k * BATCH;
+      if (start >= rows.length) break;
+      chunks.push(rows.slice(start, Math.min(start + BATCH, rows.length)));
+    }
+    const parts = await Promise.all(chunks.map((slice) => runSlice(slice)));
+    for (const part of parts) enriched.push(...part);
+
+    onProgress?.({
+      phase: "triage_progress",
+      processedRows: enriched.length,
+      totalRows,
+    });
+
+    if (base + waveStride < rows.length && pauseMsBetweenWaves > 0) {
+      await sleep(pauseMsBetweenWaves);
+    }
   }
 
   return enriched;
@@ -221,6 +270,7 @@ export async function triageRowsWithGemini(rows, options) {
     geminiApiKey,
     model = "gemini-2.5-flash",
     signal,
+    onProgress,
   } = options;
 
   if (!geminiApiKey?.trim()) {
@@ -230,14 +280,41 @@ export async function triageRowsWithGemini(rows, options) {
     throw new Error("Paste your topic / IC / EC / RQ text for triage.");
   }
 
-  /** Smaller batches + gap between calls help stay under free-tier RPM/TPM. */
-  const BATCH = 6;
-  const pauseMsBetweenOkBatches = 2200;
-  const enriched = [];
+  /**
+   * Free tier: e.g. ~20 generateContent calls/min for 2.5 Flash. ~3.1s between starts can still
+   * hit 429 in a tight rolling window. One call at a time, 4s+ pauses, and slightly larger
+   * batches = fewer total calls. Override: GEMINI_TRIAGE_BATCH, GEMINI_TRIAGE_PAUSE_MS, GEMINI_TRIAGE_PARALLEL.
+   */
+  const BATCH = Math.min(
+    20,
+    Math.max(4, Number(process.env.GEMINI_TRIAGE_BATCH) || 14)
+  );
+  const PARALLEL = Math.min(
+    2,
+    Math.max(1, Number(process.env.GEMINI_TRIAGE_PARALLEL) || 1)
+  );
+  const pauseMsBetweenWaves = Math.max(
+    0,
+    Number(process.env.GEMINI_TRIAGE_PAUSE_MS) >= 0
+      ? Number(process.env.GEMINI_TRIAGE_PAUSE_MS)
+      : PARALLEL <= 1
+        ? 4000
+        : 800
+  );
 
-  for (let i = 0; i < rows.length; i += BATCH) {
-    if (signal?.aborted) break;
-    const slice = rows.slice(i, i + BATCH);
+  const enriched = [];
+  const totalRows = rows.length;
+  const waveStride = BATCH * PARALLEL;
+  const waveCountApprox = Math.max(1, Math.ceil(rows.length / waveStride));
+
+  onProgress?.({
+    phase: "triage_start",
+    processedRows: 0,
+    totalRows,
+    waveCountApprox,
+  });
+
+  async function runSlice(slice) {
     const payload = slice.map(compactRow);
     const userContent = buildUserPrompt(criteriaText, payload);
 
@@ -276,10 +353,40 @@ export async function triageRowsWithGemini(rows, options) {
     }
 
     const parsed = parseJsonArrayFromModelText(text.trim());
-    enriched.push(...mergeSliceResults(slice, parsed, model, "gemini"));
+    return mergeSliceResults(slice, parsed, model, "gemini");
+  }
 
-    if (i + BATCH < rows.length) {
-      await sleep(pauseMsBetweenOkBatches);
+  for (let base = 0; base < rows.length; base += waveStride) {
+    if (signal?.aborted) break;
+    const waveIndex = Math.floor(base / waveStride) + 1;
+    const batchEndExclusive = Math.min(base + waveStride, rows.length);
+    onProgress?.({
+      phase: "triage_wave_start",
+      waveIndex,
+      waveCountApprox,
+      rowFrom: base + 1,
+      rowTo: batchEndExclusive,
+      processedRows: enriched.length,
+      totalRows,
+    });
+
+    const chunks = [];
+    for (let k = 0; k < PARALLEL; k += 1) {
+      const start = base + k * BATCH;
+      if (start >= rows.length) break;
+      chunks.push(rows.slice(start, Math.min(start + BATCH, rows.length)));
+    }
+    const parts = await Promise.all(chunks.map((slice) => runSlice(slice)));
+    for (const part of parts) enriched.push(...part);
+
+    onProgress?.({
+      phase: "triage_progress",
+      processedRows: enriched.length,
+      totalRows,
+    });
+
+    if (base + waveStride < rows.length && pauseMsBetweenWaves > 0) {
+      await sleep(pauseMsBetweenWaves);
     }
   }
 

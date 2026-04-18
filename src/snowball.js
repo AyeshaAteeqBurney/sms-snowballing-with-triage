@@ -9,6 +9,34 @@ import {
   workIdFromObject,
 } from "./openalex.js";
 
+/** Resolve independent seeds in parallel batches (was strictly sequential). */
+const SEED_RESOLVE_CONCURRENCY = 6;
+
+/**
+ * Beyond round 1 the frontier can explode (hundreds of parents). Expanding each
+ * sequentially against OpenAlex can take many hours. We cap parents per round
+ * and prioritize higher cited_by_count (from rows we already have).
+ */
+const MAX_FRONTIER_PER_ROUND = 100;
+
+/** Bound parallel parent expansion (higher risks 429s; 3 is a stable default). */
+const PARENT_EXPAND_CONCURRENCY = 3;
+
+async function mapWithConcurrency(items, concurrency, fn) {
+  if (!items.length) return;
+  let cursor = 0;
+  const n = Math.min(Math.max(1, concurrency), items.length);
+  const worker = async () => {
+    while (true) {
+      const i = cursor;
+      cursor += 1;
+      if (i >= items.length) break;
+      await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: n }, () => worker()));
+}
+
 function summarizeWorkRow(work, extras) {
   const id = workIdFromObject(work);
   const doi =
@@ -20,6 +48,8 @@ function summarizeWorkRow(work, extras) {
     doi,
     title: work?.display_name || work?.title || "",
     year: work.publication_year ?? "",
+    cited_by_count:
+      typeof work?.cited_by_count === "number" ? work.cited_by_count : null,
     landing_url: landingPageFromWork(work),
     oa_url: oaUrlFromWork(work),
     ...extras,
@@ -51,6 +81,7 @@ export async function runSnowball(opts) {
     seedLinesAttempted: seedLines.length,
     errors: [],
     rounds: [],
+    frontierCaps: [],
     totals: {
       backwardRefIdsQueued: 0,
       backwardWorksResolved: 0,
@@ -76,37 +107,53 @@ export async function runSnowball(opts) {
 
   report("resolve_seeds_start", { count: seedLines.length });
 
-  for (let i = 0; i < seedLines.length; i += 1) {
+  for (
+    let batchStart = 0;
+    batchStart < seedLines.length;
+    batchStart += SEED_RESOLVE_CONCURRENCY
+  ) {
     if (signal?.aborted) break;
-    const line = seedLines[i];
-    const resolved = await resolveToWorkId(line, { mailto, signal });
-    report("seed_resolved", {
-      line,
-      ok: !!resolved.workId,
-      idx: i + 1,
-      total: seedLines.length,
-    });
-    if (!resolved.workId || !resolved.work) continue;
-
-    if (resolved.source === "doi") {
-      doiResolveMeta = {
-        doi_resolution_via: resolved.doiResolution ?? null,
-        doi_merge_candidates: resolved.doiCandidatesConsidered ?? null,
-      };
-    }
-
-    seeds.add(resolved.workId);
-    roundOf.set(resolved.workId, 0);
-
-    const full = await getWork(resolved.workId, { mailto, signal });
-    rowsById.set(
-      resolved.workId,
-      summarizeWorkRow(full, {
-        direction: "seed",
-        parent_openalex_id: "",
-        discovered_round: 0,
-      })
+    const batch = seedLines.slice(batchStart, batchStart + SEED_RESOLVE_CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((line) => resolveToWorkId(line, { mailto, signal }))
     );
+
+    for (let j = 0; j < batch.length; j += 1) {
+      if (signal?.aborted) break;
+      const i = batchStart + j;
+      const line = batch[j];
+      const resolved = batchResults[j];
+      report("seed_resolved", {
+        line,
+        ok: !!resolved.workId,
+        idx: i + 1,
+        total: seedLines.length,
+      });
+      if (!resolved.workId || !resolved.work) continue;
+
+      if (resolved.source === "doi") {
+        doiResolveMeta = {
+          doi_resolution_via: resolved.doiResolution ?? null,
+          doi_merge_candidates: resolved.doiCandidatesConsidered ?? null,
+        };
+      }
+
+      seeds.add(resolved.workId);
+      roundOf.set(resolved.workId, 0);
+
+      let full = resolved.work;
+      if (!full?.id || !Array.isArray(full.referenced_works)) {
+        full = await getWork(resolved.workId, { mailto, signal });
+      }
+      rowsById.set(
+        resolved.workId,
+        summarizeWorkRow(full, {
+          direction: "seed",
+          parent_openalex_id: "",
+          discovered_round: 0,
+        })
+      );
+    }
   }
 
   if (rowsById.size === 0) {
@@ -134,11 +181,40 @@ export async function runSnowball(opts) {
     const discoveredThisRound = [];
     report("round_start", { round, frontierSize: frontier.length });
 
+    const frontierTotal = frontier.length;
+    let expandedFrontier = frontier;
+    let capMeta = {
+      applied: false,
+      limit: MAX_FRONTIER_PER_ROUND,
+      total: frontierTotal,
+      expanded: frontierTotal,
+      skipped: 0,
+    };
+
+    if (frontierTotal > MAX_FRONTIER_PER_ROUND) {
+      expandedFrontier = [...frontier].sort((a, b) => {
+        const ca = rowsById.get(a)?.cited_by_count ?? -1;
+        const cb = rowsById.get(b)?.cited_by_count ?? -1;
+        return cb - ca;
+      }).slice(0, MAX_FRONTIER_PER_ROUND);
+      capMeta = {
+        applied: true,
+        limit: MAX_FRONTIER_PER_ROUND,
+        total: frontierTotal,
+        expanded: expandedFrontier.length,
+        skipped: frontierTotal - expandedFrontier.length,
+      };
+      expansionAudit.frontierCaps.push({ round, ...capMeta });
+    }
+
     const nextFrontierSet = new Set();
 
     const roundAudit = {
       round,
-      parentsExpanded: frontier.length,
+      frontierTotal,
+      frontierExpanded: expandedFrontier.length,
+      frontierCap: capMeta.applied ? capMeta : null,
+      parentsExpanded: expandedFrontier.length,
       backwardRefIdsQueued: 0,
       backwardWorksResolved: 0,
       backwardUniqueAdded: 0,
@@ -146,109 +222,129 @@ export async function runSnowball(opts) {
       forwardUniqueAdded: 0,
     };
 
-    for (let fi = 0; fi < frontier.length; fi += 1) {
-      if (signal?.aborted) break;
-      const parentId = frontier[fi];
+    let completedExpanded = 0;
 
-      report("expand_work", {
-        round,
-        parentId,
-        idx: fi + 1,
-        total: frontier.length,
-      });
+    await mapWithConcurrency(
+      expandedFrontier,
+      PARENT_EXPAND_CONCURRENCY,
+      async (parentId, fi) => {
+        if (signal?.aborted) return;
 
-      let parentWork;
-      try {
-        parentWork = await getWork(parentId, { mailto, signal });
-      } catch (e) {
-        expansionAudit.errors.push({
-          scope: "getWork_parent",
+        report("expand_work", {
+          round,
           parentId,
-          message: e.message || String(e),
+          idx: fi + 1,
+          total: expandedFrontier.length,
         });
-        continue;
-      }
 
-      /* backward */
-      let refIds = referencedWorkIdsFromWork(parentWork);
-      refIds = refIds.slice(0, maxBackwardPerWork);
-      roundAudit.backwardRefIdsQueued += refIds.length;
-      expansionAudit.totals.backwardRefIdsQueued += refIds.length;
-
-      const refWorks = await getWorksByIds(refIds, {
-        mailto,
-        signal,
-        onProgress: ({ done, total }) =>
-          report("backward_fetch", { parentId, done, total }),
-      });
-
-      roundAudit.backwardWorksResolved += refWorks.size;
-      expansionAudit.totals.backwardWorksResolved += refWorks.size;
-
-      for (const rid of refIds) {
-        const w = refWorks.get(rid);
-        if (!w) continue;
-        const wid = workIdFromObject(w);
-        if (!wid) continue;
-
-        if (!rowsById.has(wid)) {
-          rowsById.set(
-            wid,
-            summarizeWorkRow(w, {
-              direction: "backward",
-              parent_openalex_id: parentId,
-              discovered_round: round,
-            })
-          );
-          roundOf.set(wid, round);
-          discoveredThisRound.push(wid);
-          nextFrontierSet.add(wid);
-          roundAudit.backwardUniqueAdded += 1;
-          expansionAudit.totals.backwardUniqueAdded += 1;
+        try {
+        let parentWork;
+        try {
+          parentWork = await getWork(parentId, { mailto, signal });
+        } catch (e) {
+          expansionAudit.errors.push({
+            scope: "getWork_parent",
+            parentId,
+            message: e.message || String(e),
+          });
+          return;
         }
-      }
 
-      /* forward */
-      let citing;
-      try {
-        citing = await fetchCitingWorks(parentId, {
+        /* backward */
+        let refIds = referencedWorkIdsFromWork(parentWork);
+        refIds = refIds.slice(0, maxBackwardPerWork);
+        roundAudit.backwardRefIdsQueued += refIds.length;
+        expansionAudit.totals.backwardRefIdsQueued += refIds.length;
+
+        const refWorks = await getWorksByIds(refIds, {
           mailto,
-          max: maxForwardPerWork,
           signal,
+          onProgress: ({ done, total }) =>
+            report("backward_fetch", { parentId, done, total }),
         });
-      } catch (e) {
-        citing = [];
-        expansionAudit.errors.push({
-          scope: "forward_cites",
-          parentId,
-          message: e.message || String(e),
-        });
-      }
 
-      roundAudit.forwardWorksFetched += citing.length;
-      expansionAudit.totals.forwardWorksFetched += citing.length;
+        roundAudit.backwardWorksResolved += refWorks.size;
+        expansionAudit.totals.backwardWorksResolved += refWorks.size;
 
-      for (const w of citing) {
-        const wid = workIdFromObject(w);
-        if (!wid) continue;
+        for (const rid of refIds) {
+          const w = refWorks.get(rid);
+          if (!w) continue;
+          const wid = workIdFromObject(w);
+          if (!wid) continue;
 
-        if (!rowsById.has(wid)) {
-          rowsById.set(
-            wid,
-            summarizeWorkRow(w, {
-              direction: "forward",
-              parent_openalex_id: parentId,
-              discovered_round: round,
-            })
-          );
-          roundOf.set(wid, round);
-          discoveredThisRound.push(wid);
-          nextFrontierSet.add(wid);
-          roundAudit.forwardUniqueAdded += 1;
-          expansionAudit.totals.forwardUniqueAdded += 1;
+          if (!rowsById.has(wid)) {
+            rowsById.set(
+              wid,
+              summarizeWorkRow(w, {
+                direction: "backward",
+                parent_openalex_id: parentId,
+                discovered_round: round,
+              })
+            );
+            roundOf.set(wid, round);
+            discoveredThisRound.push(wid);
+            nextFrontierSet.add(wid);
+            roundAudit.backwardUniqueAdded += 1;
+            expansionAudit.totals.backwardUniqueAdded += 1;
+          }
+        }
+
+        /* forward */
+        let citing;
+        try {
+          citing = await fetchCitingWorks(parentId, {
+            mailto,
+            max: maxForwardPerWork,
+            signal,
+          });
+        } catch (e) {
+          citing = [];
+          expansionAudit.errors.push({
+            scope: "forward_cites",
+            parentId,
+            message: e.message || String(e),
+          });
+        }
+
+        roundAudit.forwardWorksFetched += citing.length;
+        expansionAudit.totals.forwardWorksFetched += citing.length;
+
+        for (const w of citing) {
+          const wid = workIdFromObject(w);
+          if (!wid) continue;
+
+          if (!rowsById.has(wid)) {
+            rowsById.set(
+              wid,
+              summarizeWorkRow(w, {
+                direction: "forward",
+                parent_openalex_id: parentId,
+                discovered_round: round,
+              })
+            );
+            roundOf.set(wid, round);
+            discoveredThisRound.push(wid);
+            nextFrontierSet.add(wid);
+            roundAudit.forwardUniqueAdded += 1;
+            expansionAudit.totals.forwardUniqueAdded += 1;
+          }
+        }
+        } catch (e) {
+          expansionAudit.errors.push({
+            scope: "expand_parent",
+            parentId,
+            message: e.message || String(e),
+          });
+        } finally {
+          completedExpanded += 1;
+          report("round_expand_progress", {
+            round,
+            completed: completedExpanded,
+            total: expandedFrontier.length,
+          });
         }
       }
-    }
+    );
 
     expansionAudit.rounds.push(roundAudit);
 
