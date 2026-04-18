@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>SMS · OpenAlex snowball + triage</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Systematic mapping · citation snowball</h1>
+      <p class="lede">
+        Resolve seeds via <a href="https://openalex.org" target="_blank" rel="noreferrer">OpenAlex</a>,
+        expand backward references and forward citations for a fixed number of rounds, then optionally
+        get <strong>advisory</strong> LLM screening hints. This does not perform inclusion decisions.
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Seeds & snowball parameters</h2>
+      <p class="hint">One DOI, OpenAlex <code>W</code> id, or <code>openalex.org/…</code> URL per line (or comma-separated).</p>
+      <textarea id="seeds" rows="6" placeholder="10.1234/example
+W2741809807"></textarea>
+      <div class="grid">
+        <label>Polite pool email (recommended)
+          <input type="email" id="mailto" placeholder="you@university.edu" />
+        </label>
+        <label>Max rounds
+          <input type="number" id="maxRounds" min="1" max="10" value="2" />
+        </label>
+        <label>Max backward refs per parent / round
+          <input type="number" id="maxBack" min="1" max="500" value="40" />
+        </label>
+        <label>Max forward cites per parent / round
+          <input type="number" id="maxFwd" min="1" max="500" value="60" />
+        </label>
+      </div>
+      <button type="button" class="primary" id="btnSnowball">Run snowball</button>
+      <p id="snowStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card">
+      <h2>Advisory AI triage (optional)</h2>
+      <p class="hint">
+        Paste your topic and inclusion/exclusion logic in natural language. Outputs are hints only—manual screening still required.
+        After triage, the <strong>estimated relevance</strong> chart in Results updates; tighten your criteria text and rerun if the mix looks off.
+      </p>
+      <textarea id="criteria" rows="8" placeholder="Topic + IC/EC + RQs…"></textarea>
+      <label>LLM provider
+        <select id="triageProvider">
+          <option value="gemini">Google Gemini (free tier · AI Studio)</option>
+          <option value="anthropic">Anthropic Claude</option>
+        </select>
+      </label>
+      <label id="llmKeyLabel"><span id="llmKeyLabelText">Google AI Studio API key (sent to this local server only; never stored)</span>
+        <input type="password" id="llmKey" autocomplete="off" />
+      </label>
+      <label class="inline">Model
+        <select id="model"></select>
+      </label>
+      <button type="button" class="primary" id="btnTriage" disabled>Run triage on results</button>
+      <p id="triageStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card section-results">
+      <h2>Results</h2>
+      <p class="hint"><span id="audit"></span></p>
+      <p class="hint expansion-detail" id="expansionDetail"></p>
+      <div class="callout" id="chartCallout">
+        <strong>Better relevance signal:</strong> Snowballing only discovers citation-linked papers; it does not measure topic fit.
+        Run <strong>Advisory AI triage</strong> above with your IC/EC and RQs so the chart below can show an <em>estimated</em> relevance mix (advisory—manual screening stays authoritative).
+      </div>
+      <div class="chart-grid">
+        <div class="chart-box">
+          <h3>Corpus shape (snowball)</h3>
+          <p class="chart-caption">Papers by discovery round</p>
+          <div class="chart-canvas-wrap">
+            <canvas id="chartRounds" height="220"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <h3>Estimated relevance (AI triage)</h3>
+          <p class="chart-caption" id="relevanceCaption">Run snowball, then triage to populate this chart.</p>
+          <div class="chart-canvas-wrap">
+            <canvas id="chartRelevance" height="220"></canvas>
+          </div>
+          <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" id="btnCsv" disabled>Download CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Round</th>
+              <th>Dir</th>
+              <th>Year</th>
+              <th>DOI</th>
+              <th>Title</th>
+              <th>OpenAlex</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p>For method reporting: cite OpenAlex usage and document rounds, caps, and that candidates require independent screening.</p>
+    </footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>

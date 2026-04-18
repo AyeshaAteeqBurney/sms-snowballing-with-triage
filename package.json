@@ -1,0 +1,16 @@
+{
+  "name": "sms-openalex-snowball",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local SMS snowballing via OpenAlex + optional LLM screening hints",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
