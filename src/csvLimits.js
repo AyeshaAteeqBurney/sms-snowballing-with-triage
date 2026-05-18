@@ -39,29 +39,38 @@ export function applySnowballSeedCap(seedLines) {
  * @param {Record<string, string>[]} records Raw CSV record objects from parseCsv
  * @returns {{ records: typeof records; cap: object }}
  */
-export function applyCsvRowCap(records) {
+export function applyCsvRowCap(records, opts = {}) {
   const totalRowsInFile = records.length;
-  const limit = MAX_CSV_DATA_ROWS;
-
-  if (totalRowsInFile <= limit) {
-    return {
-      records,
-      cap: {
-        applied: false,
-        limit,
-        totalRowsInFile,
-        skipped: 0,
-      },
-    };
-  }
+  const requestedStart = Math.max(1, Math.floor(Number(opts.rowStart) || 1));
+  const requestedCount = Math.min(
+    MAX_CSV_DATA_ROWS,
+    Math.max(1, Math.floor(Number(opts.rowCount) || MAX_CSV_DATA_ROWS))
+  );
+  const limit = requestedCount;
+  const startIndex = Math.min(totalRowsInFile, requestedStart - 1);
+  const endExclusive = Math.min(totalRowsInFile, startIndex + requestedCount);
+  const sliced = records.slice(startIndex, endExclusive);
+  const processedCount = sliced.length;
+  const startRow = processedCount > 0 ? startIndex + 1 : requestedStart;
+  const endRow = processedCount > 0 ? startIndex + processedCount : requestedStart - 1;
+  const skipped = Math.max(0, totalRowsInFile - processedCount);
+  const applied =
+    requestedStart !== 1 ||
+    requestedCount !== MAX_CSV_DATA_ROWS ||
+    totalRowsInFile > processedCount;
 
   return {
-    records: records.slice(0, limit),
+    records: sliced,
     cap: {
-      applied: true,
+      applied,
       limit,
+      requestedStart,
+      requestedCount,
+      startRow,
+      endRow,
+      processedCount,
       totalRowsInFile,
-      skipped: totalRowsInFile - limit,
+      skipped,
     },
   };
 }

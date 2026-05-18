@@ -61,6 +61,8 @@ app.post("/api/import-csv-snowball", async (req, res) => {
       maxRounds = 2,
       maxBackwardPerWork = 40,
       maxForwardPerWork = 60,
+      rowStart = 1,
+      rowCount = 50,
     } = req.body || {};
 
     const text = String(csvText || "");
@@ -73,9 +75,14 @@ app.post("/api/import-csv-snowball", async (req, res) => {
       return res.status(400).json({ error: "Could not read CSV headers (empty file?)." });
     }
 
-    const capped = applyCsvRowCap(records);
+    const capped = applyCsvRowCap(records, { rowStart, rowCount });
     records = capped.records;
     const csvRowCap = capped.cap;
+    if (records.length === 0) {
+      return res.status(400).json({
+        error: `Start row ${csvRowCap.requestedStart} is beyond the uploaded list (${csvRowCap.totalRowsInFile} rows).`,
+      });
+    }
 
     const safeName = String(filename || "upload.csv")
       .replace(/[/\\?%*:|"<>]/g, "_")

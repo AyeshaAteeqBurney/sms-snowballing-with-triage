@@ -606,6 +606,44 @@ label.field {
   background: var(--surface-inset);
 }
 
+.window-slider {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.window-slider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.window-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.window-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
 /* Legacy selectors (unchanged markup in places) */
 textarea,
 input[type="email"],
@@ -1056,14 +1094,3 @@ td code {
   }
 }
 
-/* Legacy aliases */
-.card,
-.workspace-panel {
-  /* panel is the card now */
-}
-
-.wrap,
-.page-main,
-.page-header {
-  /* removed from markup */
-}

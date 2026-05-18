@@ -15,6 +15,7 @@ let chartRoundsInst = null;
 let chartRelevanceInst = null;
 
 const MAX_TRIAGE_BATCH = 10;
+const MAX_SNOWBALL_ROWS = 50;
 const THEME_STORAGE_KEY = "sra-theme";
 
 function $(id) {
@@ -741,6 +742,115 @@ function clampTriageBatchSize() {
   return n;
 }
 
+function clampSnowballRowWindow() {
+  const startEl = $("snowballRowStart");
+  const countEl = $("snowballRowCount");
+  const sliderEl = $("snowballWindowStart");
+
+  let rowStart = Math.max(1, Math.floor(Number(startEl?.value) || 1));
+  let rowCount = Math.min(
+    MAX_SNOWBALL_ROWS,
+    Math.max(1, Math.floor(Number(countEl?.value) || MAX_SNOWBALL_ROWS))
+  );
+  const totalRows = Math.max(0, Math.floor(Number(snowballTotalRows || 0)));
+  const maxStart = totalRows > 0 ? Math.max(1, totalRows - rowCount + 1) : 1;
+  rowStart = Math.min(rowStart, maxStart);
+
+  if (sliderEl) {
+    sliderEl.disabled = totalRows <= 0;
+    sliderEl.min = "1";
+    sliderEl.max = String(maxStart);
+    sliderEl.value = String(rowStart);
+  }
+
+  if (startEl) startEl.value = String(rowStart);
+  if (countEl) countEl.value = String(rowCount);
+  return { rowStart, rowCount };
+}
+
+function updateSnowballWindowPreview() {
+  const previewEl = $("snowballWindowPreview");
+  if (!previewEl) return;
+  const totalRows = Math.max(0, Math.floor(Number(snowballTotalRows || 0)));
+  const { rowStart, rowCount } = clampSnowballRowWindow();
+  const end = rowStart + rowCount - 1;
+  if (totalRows > 0) {
+    previewEl.textContent = `Will process papers ${rowStart}-${Math.min(
+      end,
+      totalRows
+    )} of ${totalRows}.`;
+  } else {
+    previewEl.textContent = "Pick the range to process from your uploaded list.";
+  }
+}
+
+function countCsvDataRows(text) {
+  const raw = String(text ?? "").replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [];
+  let field = "";
+  let i = 0;
+  let inQuotes = false;
+
+  while (i < raw.length) {
+    const c = raw[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (raw[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i += 1;
+        continue;
+      }
+      field += c;
+      i += 1;
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+      i += 1;
+      continue;
+    }
+    if (c === ",") {
+      row.push(field);
+      field = "";
+      i += 1;
+      continue;
+    }
+    if (c === "\r") {
+      i += 1;
+      continue;
+    }
+    if (c === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+      i += 1;
+      continue;
+    }
+    field += c;
+    i += 1;
+  }
+
+  row.push(field);
+  if (rows.length === 0 || row.some((cell) => cell !== "") || row.length > 1) {
+    rows.push(row);
+  }
+  if (rows.length === 0) return 0;
+
+  let dataRows = 0;
+  for (let r = 1; r < rows.length; r += 1) {
+    const line = rows[r];
+    if (!line || line.every((c) => String(c).trim() === "")) continue;
+    dataRows += 1;
+  }
+  return dataRows;
+}
+
 function getCurrentTriageSlice() {
   if (!triageSourceRows.length) return [];
   clampTriageBatchSize();
@@ -864,8 +974,10 @@ $("btnTableNextTriage").addEventListener("click", () => {
 function formatCsvCapCalloutHtml(audit) {
   const c = audit?.csvRowCap;
   if (!c?.applied) return "";
+  const from = c.startRow ?? 1;
+  const to = c.endRow ?? c.processedCount ?? c.limit ?? 0;
   return (
-    `<div class="callout" role="alert"><strong>Large list shortened</strong>: processed the first <strong>${c.limit}</strong> of ${c.totalRowsInFile} papers (${c.skipped} not included this run).</div>`
+    `<div class="callout" role="alert"><strong>Paper window</strong>: processed papers <strong>${from}-${to}</strong> of ${c.totalRowsInFile} (${c.skipped} not included this run).</div>`
   );
 }
 
@@ -884,7 +996,9 @@ function formatImportCalloutsHtml(audit) {
 function formatCsvCapAuditPrefix(audit) {
   const c = audit?.csvRowCap;
   if (!c?.applied) return "";
-  return `First ${c.limit} of ${c.totalRowsInFile} papers processed. `;
+  const from = c.startRow ?? 1;
+  const to = c.endRow ?? c.processedCount ?? c.limit ?? 0;
+  return `Processed papers ${from}-${to} of ${c.totalRowsInFile}. `;
 }
 
 function formatSeedCapAuditPrefix(audit) {
@@ -1130,10 +1244,20 @@ function setImportSpinner(on) {
 
 let pendingImportFile = null;
 let importRunActive = false;
+let snowballTotalRows = 0;
 
 function setSnowballControlsLocked(locked) {
   importRunActive = locked;
-  const ids = ["csvFile", "btnStartSnowball", "maxRounds", "maxBack", "maxFwd"];
+  const ids = [
+    "csvFile",
+    "btnStartSnowball",
+    "maxRounds",
+    "maxBack",
+    "maxFwd",
+    "snowballRowStart",
+    "snowballRowCount",
+    "snowballWindowStart",
+  ];
   for (const id of ids) {
     const el = $(id);
     if (!el) continue;
@@ -1142,6 +1266,7 @@ function setSnowballControlsLocked(locked) {
   if (!locked && $("btnStartSnowball")) {
     $("btnStartSnowball").disabled = !pendingImportFile;
   }
+  clampSnowballRowWindow();
 }
 
 function updateFilePickHint() {
@@ -1151,19 +1276,25 @@ function updateFilePickHint() {
     hint.hidden = true;
     return;
   }
+  updateSnowballWindowPreview();
+  const totalRows = Math.max(0, Number(snowballTotalRows || 0));
+  const { rowStart, rowCount } = clampSnowballRowWindow();
+  const rowEnd = totalRows > 0 ? Math.min(totalRows, rowStart + rowCount - 1) : rowStart + rowCount - 1;
   hint.hidden = false;
   hint.textContent =
-    `Selected: ${pendingImportFile.name} — adjust settings if needed, then click Build citation network.`;
+    `Selected: ${pendingImportFile.name} — papers ${rowStart}-${rowEnd} will be processed this run; adjust settings if needed, then click Build citation network.`;
 }
 
-$("csvFile").addEventListener("change", (ev) => {
+$("csvFile").addEventListener("change", async (ev) => {
   const st = $("importStatus");
   pendingImportFile = ev.target.files?.[0] || null;
+  snowballTotalRows = 0;
   st.classList.remove("err", "status-busy");
   setImportSpinner(false);
   if (!pendingImportFile) {
     st.textContent = "";
     $("btnStartSnowball").disabled = true;
+    updateSnowballWindowPreview();
     updateFilePickHint();
     return;
   }
@@ -1171,6 +1302,13 @@ $("csvFile").addEventListener("change", (ev) => {
   if (!importRunActive) {
     st.textContent = "";
   }
+  try {
+    const text = await pendingImportFile.text();
+    snowballTotalRows = countCsvDataRows(text);
+  } catch {
+    snowballTotalRows = 0;
+  }
+  updateSnowballWindowPreview();
   updateFilePickHint();
 });
 
@@ -1206,8 +1344,12 @@ $("btnStartSnowball").addEventListener("click", async () => {
     maxRounds: Math.min(10, Math.max(1, Number($("maxRounds").value) || 2)),
     lastPct: 0,
   };
+  const { rowStart, rowCount } = clampSnowballRowWindow();
+  const rowEnd = snowballTotalRows > 0
+    ? Math.min(snowballTotalRows, rowStart + rowCount - 1)
+    : rowStart + rowCount - 1;
   st.textContent =
-    `Building network: 1% — linking to OpenAlex · ${progressState.maxRounds} round(s) · keep this tab open.`;
+    `Building network: 1% — papers ${rowStart}-${rowEnd} · ${progressState.maxRounds} round(s) · keep this tab open.`;
 
   try {
     const res = await fetch("/api/import-csv-snowball", {
@@ -1220,6 +1362,8 @@ $("btnStartSnowball").addEventListener("click", async () => {
         maxRounds: progressState.maxRounds,
         maxBackwardPerWork: Number($("maxBack").value),
         maxForwardPerWork: Number($("maxFwd").value),
+        rowStart,
+        rowCount,
       }),
     });
     const ct = res.headers.get("content-type") || "";
@@ -1253,6 +1397,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
 
     lastRows = data.rows || [];
     lastAudit = data.audit || null;
+    snowballTotalRows = Number(data.audit?.csvRowCap?.totalRowsInFile) || snowballTotalRows;
     snowballTablePageIndex = 0;
     $("audit").textContent = formatCsvSnowballAuditLine(data.audit);
     if (data.audit?.snowballSkipped) {
@@ -1270,7 +1415,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
       : `Done: ${lastRows.length} paper(s) in your expanded corpus.`;
     if (data.audit?.csvRowCap?.applied) {
       const c = data.audit.csvRowCap;
-      doneMsg += ` · First ${c.limit} of ${c.totalRowsInFile} from your list were processed.`;
+      doneMsg += ` · Processed papers ${c.startRow}-${c.endRow} of ${c.totalRowsInFile}.`;
     }
     const sc = data.audit?.csvSnowball?.seedCap;
     if (sc?.applied) {
@@ -1278,6 +1423,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     }
     st.classList.remove("status-busy");
     st.textContent = doneMsg;
+    updateSnowballWindowPreview();
   } catch (e) {
     st.classList.remove("status-busy");
     st.textContent = e.message || String(e);
@@ -1285,6 +1431,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     $("expansionDetail").innerHTML = "";
     $("audit").textContent = "";
     updateChartsSnowball([]);
+    updateSnowballWindowPreview();
   } finally {
     setImportSpinner(false);
     setSnowballControlsLocked(false);
@@ -1337,6 +1484,29 @@ $("triageCsvFile").addEventListener("change", async (ev) => {
   if (el) el.addEventListener("input", () => syncTriageAvailability());
 });
 
+["snowballRowStart", "snowballRowCount"].forEach((id) => {
+  const el = $(id);
+  if (el) {
+    el.addEventListener("input", () => {
+      clampSnowballRowWindow();
+      updateSnowballWindowPreview();
+      updateFilePickHint();
+    });
+  }
+});
+
+const snowballSlider = $("snowballWindowStart");
+if (snowballSlider) {
+  snowballSlider.addEventListener("input", () => {
+    const startEl = $("snowballRowStart");
+    if (startEl) startEl.value = String(Math.max(1, Number(snowballSlider.value) || 1));
+    clampSnowballRowWindow();
+    updateSnowballWindowPreview();
+    updateFilePickHint();
+  });
+}
+
 initWorkflowTabs();
 syncTriageAvailability();
 syncResultsEmptyStates();
+updateSnowballWindowPreview();
