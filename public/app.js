@@ -201,7 +201,7 @@ function updateChartsSnowball(rows) {
       labels: roundAgg.labels.length ? roundAgg.labels : ["—"],
       datasets: [
         {
-          label: "Works",
+          label: "Papers",
           data: roundAgg.values.length ? roundAgg.values : [0],
           backgroundColor: accent,
           borderColor: accentStrong,
@@ -256,23 +256,23 @@ function updateChartsTriage(rows) {
     data = [1];
     colors = [muted];
     captionEl.textContent =
-      "Run triage batches—accumulated rows with AI labels appear here.";
+      "Run screening on batches—combined results will appear here.";
     summaryEl.textContent = "";
   } else if (!rel.triaged) {
-    labels = ["Awaiting labels"];
+    labels = ["Waiting for scores"];
     data = [rows.length];
     colors = [muted];
-    captionEl.textContent = `${rows.length} row(s) loaded—triage batches to populate relevance.`;
+    captionEl.textContent = `${rows.length} paper(s) loaded—run screening to see relevance scores.`;
     summaryEl.textContent =
-      "AI hints estimate fit to your IC/EC (advisory only—not inclusion decisions).";
+      "Scores reflect fit to your criteria—they guide reading, not final decisions.";
   } else if (rel.totalLabeled === 0 && rel.emptyBand > 0) {
-    labels = ["Band not parsed"];
+    labels = ["Unscored"];
     data = [rel.emptyBand];
     colors = ["#94a3b8"];
     captionEl.textContent =
-      "Triage ran but relevance labels were empty—check CSV or rerun triage.";
+      "Screening finished but no scores were returned—try clearer criteria and run again.";
     summaryEl.textContent =
-      "Refine your criteria text and rerun triage to get a clearer relevance chart.";
+      "Add more detail to your screening criteria, then screen another batch.";
   } else {
     labels = [];
     data = [];
@@ -302,11 +302,11 @@ function updateChartsTriage(rows) {
       data.push(rel.emptyBand);
       colors.push("#64748b");
     }
-    captionEl.textContent = `Advisory distribution (${rows.length} accumulated triaged rows).`;
+    captionEl.textContent = `Score distribution across ${rows.length} screened paper(s).`;
     const denom = rel.totalLabeled + rel.emptyBand || 1;
     const pctFocus = Math.round(((rel.medium + rel.high) / denom) * 100);
     summaryEl.textContent =
-      `About ${pctFocus}% medium or high by model estimate—validate in title/abstract/PDF; use hints to focus reading, not as final accuracy.`;
+      `About ${pctFocus}% rated medium or high—read titles and abstracts to confirm before including papers.`;
   }
 
   chartRelevanceInst = new Chart(ctxRel, {
@@ -361,7 +361,7 @@ function renderSnowballTable() {
     slice = rows.slice(start, start + TABLE_PAGE_SIZE);
     const end = Math.min(total, start + slice.length);
     if (meta) {
-      meta.textContent = `Showing ${start + 1}–${end} of ${total} · Page ${snowballTablePageIndex + 1} / ${pageCount}`;
+      meta.textContent = `${start + 1}–${end} of ${total} · page ${snowballTablePageIndex + 1} of ${pageCount}`;
     }
     if (btnPrev) btnPrev.disabled = snowballTablePageIndex <= 0;
     if (btnNext) btnNext.disabled = snowballTablePageIndex >= pageCount - 1;
@@ -382,7 +382,7 @@ function renderSnowballTable() {
       <td>${escapeHtml(r.doi)}</td>
       <td>${escapeHtml(truncate(r.title, 120))}</td>
       <td><code>${escapeHtml(r.openalex_id)}</code></td>
-      <td>${link ? `<a href="${escapeAttr(link)}" target="_blank" rel="noreferrer">open</a>` : ""}</td>
+      <td>${link ? `<a href="${escapeAttr(link)}" target="_blank" rel="noreferrer">View</a>` : ""}</td>
     `;
     tb.appendChild(tr);
   }
@@ -414,7 +414,7 @@ function renderTriageTable() {
     slice = rows.slice(start, start + TABLE_PAGE_SIZE);
     const end = Math.min(total, start + slice.length);
     if (meta) {
-      meta.textContent = `Showing ${start + 1}–${end} of ${total} · Page ${triageTablePageIndex + 1} / ${pageCount}`;
+      meta.textContent = `${start + 1}–${end} of ${total} · page ${triageTablePageIndex + 1} of ${pageCount}`;
     }
     if (btnPrev) btnPrev.disabled = triageTablePageIndex <= 0;
     if (btnNext) btnNext.disabled = triageTablePageIndex >= pageCount - 1;
@@ -428,8 +428,8 @@ function renderTriageTable() {
   const hintEl = $("triageAccumHint");
   if (hintEl) {
     hintEl.textContent = total
-      ? `Accumulated ${total} triaged row(s)—export CSV or continue batching.`
-      : "No triage batches completed yet—run triage on a batch above.";
+      ? `${total} screened paper(s) so far—export results or screen the next batch.`
+      : "No screening runs yet—screen a batch above to see results here.";
   }
 
   for (const r of slice) {
@@ -444,7 +444,7 @@ function renderTriageTable() {
       <td>${escapeHtml(truncate(r.title, 100))}</td>
       <td><code>${escapeHtml(r.openalex_id)}</code></td>
       <td>${rel ? `<span class="triage-rel">${rel}</span>` : "—"}</td>
-      <td>${link ? `<a href="${escapeAttr(link)}" target="_blank" rel="noreferrer">open</a>` : ""}</td>
+      <td>${link ? `<a href="${escapeAttr(link)}" target="_blank" rel="noreferrer">View</a>` : ""}</td>
     `;
     tb.appendChild(tr);
   }
@@ -511,17 +511,19 @@ function snowballProgressDetail(ev, state) {
   const R = Math.max(1, Number(state.maxRounds) || 2);
   switch (ev.phase) {
     case "resolve_seeds_start":
-      return ev.count != null ? `connecting OpenAlex · ${ev.count} seed(s)` : "connecting OpenAlex";
+      return ev.count != null
+        ? `linking to OpenAlex · ${ev.count} seed paper(s)`
+        : "linking to OpenAlex";
     case "seed_resolved":
-      return `resolving seeds ${ev.idx}/${ev.total}`;
+      return `preparing seeds ${ev.idx} of ${ev.total}`;
     case "snowball_rounds_start":
-      return `starting citation expansion (${R} round(s))`;
+      return `expanding citations (${R} round(s))`;
     case "round_start":
-      return `round ${ev.round}/${R} · ${ev.frontierSize} paper(s) in frontier`;
+      return `round ${ev.round} of ${R} · ${ev.frontierSize} paper(s) to expand`;
     case "round_expand_progress":
-      return `round ${ev.round}/${R} · expanded ${ev.completed}/${ev.total} parents`;
+      return `round ${ev.round} of ${R} · ${ev.completed} of ${ev.total} expanded`;
     case "round_done":
-      return `round ${ev.round}/${R} finished · ${ev.nextFrontier ?? 0} queued for next round`;
+      return `round ${ev.round} of ${R} done · ${ev.nextFrontier ?? 0} queued next`;
     default:
       return "";
   }
@@ -534,9 +536,9 @@ function formatImportSnowballBusyLine(ev, state) {
   const pct = snowballProgressPercent(ev, state);
   state.lastPct = pct;
   const detail = snowballProgressDetail(ev, state);
-  let line = `Snowballing: ${pct}%`;
+  let line = `Building network: ${pct}%`;
   if (detail) line += ` — ${detail}`;
-  line += " · do not close this page.";
+  line += " · keep this tab open.";
   return line;
 }
 
@@ -551,11 +553,11 @@ function formatTriageRunningFromProgress(ev) {
 
   if (phase === "triage_start") {
     pct = 0;
-    detail = `queued ${total} papers (~${wc} batches)`;
+    detail = `preparing ${total} paper(s)`;
   } else if (phase === "triage_pacing") {
     pct = 3;
     const sec = Math.max(1, Math.ceil((Number(ev.waitMs) || 0) / 1000));
-    detail = `spacing Gemini calls (${sec}s) to respect free-tier request limits`;
+    detail = `waiting ${sec}s between requests`;
   } else if (phase === "triage_rate_limit_wait") {
     pct = Math.min(
       94,
@@ -565,22 +567,22 @@ function formatTriageRunningFromProgress(ev) {
       )
     );
     const sec = Math.max(1, Math.ceil((Number(ev.waitMs) || 0) / 1000));
-    detail = `Gemini rate limit — pausing ~${sec}s (retry ${Number(ev.attempt) || 1}/${Number(ev.maxAttempts) || 12}). Do not close this tab.`;
+    detail = `API limit reached — pausing ~${sec}s (retry ${Number(ev.attempt) || 1} of ${Number(ev.maxAttempts) || 12})`;
   } else if (phase === "triage_wave_start") {
     const wi = Math.max(1, Number(ev.waveIndex) || 1);
     pct = Math.max(1, Math.min(97, Math.round((100 * wi) / wc)));
-    detail = `batch ${wi}/${wc} · rows ${ev.rowFrom}–${ev.rowTo} · scored ${pr} of ${total}`;
+    detail = `screening papers ${ev.rowFrom}–${ev.rowTo} · ${pr} of ${total} scored`;
     if (pr === 0 && wi <= 2) {
-      detail += " · waiting for model (first reply often takes 1–3 min)";
+      detail += " · first response may take a few minutes";
     }
   } else {
     pct = Math.min(99, Math.ceil((100 * pr) / total));
-    detail = `scored ${pr} of ${total} papers (one model call per batch)`;
+    detail = `scored ${pr} of ${total} paper(s)`;
   }
 
   return (
     `<span class="triage-spinner-host-inline" aria-hidden="true"><span class="triage-spinner"></span></span>` +
-    `<span class="triage-running-text"><strong>Triage running:</strong> ${pct}% — ${detail}. Keep this tab open.</span>` +
+    `<span class="triage-running-text"><strong>Screening:</strong> ${pct}% — ${detail}. Keep this tab open.</span>` +
     `<span class="visually-hidden"> Triage ${pct}%</span>`
   );
 }
@@ -588,7 +590,7 @@ function formatTriageRunningFromProgress(ev) {
 function formatTriageErrorHint(err) {
   const msg = String(err?.message ?? err ?? "");
   if (/quota|rate|429|ResourceExhausted|free_tier|exceeded your current quota/i.test(msg)) {
-    return `${msg} — The free tier caps requests per minute (~20 for Flash-Lite). This app spaces calls and waits on 429s; if it still fails, wait one minute and retry, use another model key, or enable billing on AI Studio for higher limits.`;
+    return `${msg} — Try again in a minute, switch models, or use a paid API key if limits persist.`;
   }
   return msg;
 }
@@ -846,7 +848,7 @@ function formatCsvCapCalloutHtml(audit) {
   const c = audit?.csvRowCap;
   if (!c?.applied) return "";
   return (
-    `<div class="callout" role="alert"><strong>CSV truncated</strong>: ${c.totalRowsInFile} data rows in file—only rows <strong>1–${c.limit}</strong> were processed (${c.skipped} row(s) skipped so extraction and snowball finish in reasonable time).</div>`
+    `<div class="callout" role="alert"><strong>Large list shortened</strong>: processed the first <strong>${c.limit}</strong> of ${c.totalRowsInFile} papers (${c.skipped} not included this run).</div>`
   );
 }
 
@@ -854,7 +856,7 @@ function formatSeedCapCalloutHtml(audit) {
   const s = audit?.csvSnowball?.seedCap;
   if (!s?.applied) return "";
   return (
-    `<div class="callout" role="alert"><strong>Snowball seed limit</strong>: ${s.totalUnique} unique DOIs/OpenAlex ids in file—only the <strong>first ${s.limit}</strong> are expanded (${s.skipped} skipped). Your full CSV rows are still merged into results where they do not overlap the graph.</div>`
+    `<div class="callout" role="alert"><strong>Seed limit reached</strong>: expanded the first <strong>${s.limit}</strong> of ${s.totalUnique} identifiable papers (${s.skipped} seeds not expanded this run). Other entries from your list are still listed when they do not overlap the network.</div>`
   );
 }
 
@@ -865,13 +867,13 @@ function formatImportCalloutsHtml(audit) {
 function formatCsvCapAuditPrefix(audit) {
   const c = audit?.csvRowCap;
   if (!c?.applied) return "";
-  return `Rows 1–${c.limit} only (${c.skipped} skipped of ${c.totalRowsInFile}). `;
+  return `First ${c.limit} of ${c.totalRowsInFile} papers processed. `;
 }
 
 function formatSeedCapAuditPrefix(audit) {
   const s = audit?.csvSnowball?.seedCap;
   if (!s?.applied) return "";
-  return `Seeds ${s.limit}/${s.totalUnique} (${s.skipped} skipped). `;
+  return `Expanded ${s.limit} of ${s.totalUnique} seeds. `;
 }
 
 /** Summary line after CSV upload + automatic snowball merge. */
@@ -882,23 +884,23 @@ function formatCsvSnowballAuditLine(audit) {
     const fn = audit.filename || "upload.csv";
     return (
       capP +
-      `${audit.rowCount ?? "—"} rows from ${fn} · Snowball skipped (no DOI/OpenAlex id in file).`
+      `${audit.rowCount ?? "—"} papers from ${fn} · citation expansion skipped (add DOIs or IDs to expand).`
     );
   }
   const cs = audit.csvSnowball;
   let line =
     capP +
-    `Seeds resolved: ${audit.seedsResolved ?? "—"} · Snowball works: ${audit.totalWorks ?? "—"} · Rounds: ${audit.roundsExecuted ?? "—"}`;
+    `${audit.seedsResolved ?? "—"} seeds · ${audit.totalWorks ?? "—"} papers found · ${audit.roundsExecuted ?? "—"} expansion round(s)`;
   if (cs) {
     line +=
-      ` · CSV ${cs.csvRowCount} rows → ${cs.seedLinesUsed} seeds expanded`;
+      ` · ${cs.seedLinesUsed} of ${cs.csvRowCount} starting papers expanded`;
     if (
       cs.seedLinesTotalUnique != null &&
       cs.seedLinesTotalUnique > cs.seedLinesUsed
     ) {
-      line += ` (${cs.seedLinesTotalUnique} unique ids in file)`;
+      line += ` (${cs.seedLinesTotalUnique} identifiable in file)`;
     }
-    line += ` · +${cs.orphansMerged} CSV-only rows kept · Total ${cs.totalAfterMerge}`;
+    line += ` · ${cs.orphansMerged} from your list only · ${cs.totalAfterMerge} total`;
   }
   return line;
 }
@@ -975,7 +977,7 @@ const TRIAGE_MODELS = {
   gemini: [
     { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (recommended)" },
     { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (may show 0 quota)" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
     { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
   ],
   anthropic: [
@@ -1003,8 +1005,8 @@ function syncTriageKeyLabel() {
   if (!span) return;
   span.textContent =
     prov === "gemini"
-      ? "Google AI Studio API key (sent to this local server only; never stored)"
-      : "Anthropic API key (sent to this local server only; never stored)";
+      ? "Google AI Studio API key (used on this computer only, not saved)"
+      : "Anthropic API key (used on this computer only, not saved)";
 }
 
 $("triageProvider").addEventListener("change", () => {
@@ -1020,12 +1022,12 @@ $("btnTriage").addEventListener("click", async () => {
   const batchRows = getCurrentTriageSlice();
   if (!batchRows.length) {
     st.className = "triage-status-msg err";
-    st.textContent = "No rows in this batch—check start row and that triage CSV is loaded.";
+    st.textContent = "No papers in this batch—check the starting paper number and that a dataset is loaded.";
     return;
   }
   if (batchRows.length > MAX_TRIAGE_BATCH) {
     st.className = "triage-status-msg err";
-    st.textContent = `Select at most ${MAX_TRIAGE_BATCH} rows per run.`;
+    st.textContent = `Review at most ${MAX_TRIAGE_BATCH} papers per run.`;
     return;
   }
 
@@ -1085,7 +1087,7 @@ $("btnTriage").addEventListener("click", async () => {
     triageTablePageIndex = 0;
     $("btnCsvTriage").disabled = triageMergedRows.length === 0;
     st.className = "triage-status-msg";
-    st.textContent = `Triage done for this batch (${enriched.length} row(s)). Results merged below—advance start row for the next batch or download accumulated CSV.`;
+    st.textContent = `Screening complete for ${enriched.length} paper(s). Results are below—increase the starting paper number for the next batch or export all results.`;
     renderTriageTable();
     updateChartsTriage(triageMergedRows);
     syncTriageAvailability();
@@ -1134,7 +1136,7 @@ function updateFilePickHint() {
   }
   hint.hidden = false;
   hint.textContent =
-    `Selected: ${pendingImportFile.name} — adjust caps if needed, then click Start import & snowball.`;
+    `Selected: ${pendingImportFile.name} — adjust settings if needed, then click Build citation network.`;
 }
 
 $("csvFile").addEventListener("change", (ev) => {
@@ -1167,7 +1169,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
   setImportSpinner(true);
   st.classList.add("status-busy");
   st.textContent =
-    "Extracting: reading file and preparing seeds from your CSV…";
+    "Reading your reference list and preparing seed papers…";
 
   let csvText;
   try {
@@ -1188,7 +1190,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     lastPct: 0,
   };
   st.textContent =
-    `Snowballing: 1% — connecting OpenAlex · ${progressState.maxRounds} round(s) configured · do not close this page.`;
+    `Building network: 1% — linking to OpenAlex · ${progressState.maxRounds} round(s) · keep this tab open.`;
 
   try {
     const res = await fetch("/api/import-csv-snowball", {
@@ -1247,15 +1249,15 @@ $("btnStartSnowball").addEventListener("click", async () => {
     updateChartsSnowball(lastRows);
     $("btnCsvSnowball").disabled = lastRows.length === 0;
     let doneMsg = data.audit?.snowballSkipped
-      ? `Loaded ${lastRows.length} row(s) (snowball skipped—see Snowball results).`
-      : `Done: ${lastRows.length} row(s) after snowball + merge.`;
+      ? `Loaded ${lastRows.length} paper(s) (citation expansion skipped—see results below).`
+      : `Done: ${lastRows.length} paper(s) in your expanded corpus.`;
     if (data.audit?.csvRowCap?.applied) {
       const c = data.audit.csvRowCap;
-      doneMsg += ` · CSV used rows 1–${c.limit} only (${c.skipped} skipped).`;
+      doneMsg += ` · First ${c.limit} of ${c.totalRowsInFile} from your list were processed.`;
     }
     const sc = data.audit?.csvSnowball?.seedCap;
     if (sc?.applied) {
-      doneMsg += ` · Snowball used ${sc.limit} of ${sc.totalUnique} unique seeds (${sc.skipped} skipped).`;
+      doneMsg += ` · Expanded ${sc.limit} of ${sc.totalUnique} seed papers.`;
     }
     st.classList.remove("status-busy");
     st.textContent = doneMsg;
@@ -1280,7 +1282,7 @@ $("btnLoadSnowballIntoTriage").addEventListener("click", () => {
   const hint = $("triageCsvHint");
   if (hint) {
     hint.hidden = false;
-    hint.textContent = `Using ${triageSourceRows.length} row(s) from the current snowball run (in memory). Set start row and batch size (≤${MAX_TRIAGE_BATCH}), then run triage.`;
+    hint.textContent = `Using ${triageSourceRows.length} paper(s) from your latest citation network. Choose where to start and how many to review (up to ${MAX_TRIAGE_BATCH}), then screen.`;
   }
   const fileInput = $("triageCsvFile");
   if (fileInput) fileInput.value = "";
@@ -1301,7 +1303,7 @@ $("triageCsvFile").addEventListener("change", async (ev) => {
     triageSourceRows = await parseTriageCsvViaApi(text, f.name);
     if (hint) {
       hint.hidden = false;
-      hint.textContent = `Loaded ${triageSourceRows.length} row(s) from ${f.name}. Triage runs on up to ${MAX_TRIAGE_BATCH} rows per request—set start row and batch size.`;
+      hint.textContent = `Loaded ${triageSourceRows.length} paper(s) from ${f.name}. Review up to ${MAX_TRIAGE_BATCH} at a time—set the starting paper and batch size.`;
     }
   } catch (e) {
     triageSourceRows = [];

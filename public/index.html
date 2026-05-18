@@ -25,15 +25,15 @@
         <div class="page-header__inner">
           <h1 class="page-header__title">Systematic Review Assistant</h1>
           <p class="page-header__lede">
-            Expand your bibliography with citation snowballing, then triage papers using AI-assisted screening.
+            Grow your reading list from seed papers, then prioritize what to read with AI-assisted screening.
           </p>
           <ol class="page-header__steps">
-            <li>Upload bibliography</li>
-            <li>Expand citations with OpenAlex</li>
-            <li>Review papers with AI triage</li>
+            <li>Upload your bibliography</li>
+            <li>Follow citations outward</li>
+            <li>Screen for relevance</li>
           </ol>
           <p class="page-header__note">
-            Triage is advisory and capped at 10 papers per request—not an inclusion decision.
+            AI screening suggests where to focus—it does not decide inclusion.
           </p>
         </div>
         <button
@@ -61,7 +61,7 @@
             aria-controls="panel-snowball"
             data-tab="snowball"
           >
-            Snowball Search
+            Find papers
           </button>
           <button
             type="button"
@@ -73,7 +73,7 @@
             data-tab="triage"
             tabindex="-1"
           >
-            AI Triage
+            Screen papers
           </button>
         </div>
 
@@ -85,37 +85,36 @@
             aria-labelledby="tab-snowball"
           >
             <p class="workflow-step-badge" aria-hidden="true">Step 1</p>
-            <div class="card pillar pillar--snowball workflow-stack" aria-label="Snowballing">
+            <div class="card pillar pillar--snowball workflow-stack" aria-label="Find papers">
               <div class="pillar__block grid-snowball-config ui-section">
                 <header class="ui-section__head">
-                  <h2 class="ui-section__title">Bibliography &amp; snowball</h2>
+                  <h2 class="ui-section__title">Build your corpus</h2>
                   <p class="hint ui-section__lede">
-                    Upload a deduplicated CSV with <strong>Title</strong> and <strong>DOI</strong> or OpenAlex <strong>W…</strong> ids.
-                    Up to <strong>50 rows</strong> and <strong>12 seed identifiers</strong> per run; export when ready for triage.
+                    Upload a reference list with titles and DOIs when you have them. Each run works through part of a large list automatically.
                   </p>
                 </header>
                 <div class="form-stack">
-                  <label class="inline">CSV file
-            <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
-          </label>
-          <p id="filePickHint" class="hint file-pick-hint" hidden></p>
-          <div class="grid snowball-caps-grid">
-            <label>Max rounds
-              <input type="number" id="maxRounds" min="1" max="10" value="2" />
-            </label>
-            <label>Max backward refs per parent / round
-              <input type="number" id="maxBack" min="1" max="500" value="40" />
-            </label>
-            <label>Max forward cites per parent / round
-              <input type="number" id="maxFwd" min="1" max="500" value="60" />
-            </label>
-          </div>
+                  <label class="inline">Reference list
+                    <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
+                  </label>
+                  <p id="filePickHint" class="hint file-pick-hint" hidden></p>
+                  <div class="grid snowball-caps-grid">
+                    <label>Expansion rounds
+                      <input type="number" id="maxRounds" min="1" max="10" value="2" />
+                    </label>
+                    <label>References per paper
+                      <input type="number" id="maxBack" min="1" max="500" value="40" />
+                    </label>
+                    <label>Citing papers per paper
+                      <input type="number" id="maxFwd" min="1" max="500" value="60" />
+                    </label>
+                  </div>
                   <div class="form-actions">
-                    <button type="button" class="primary" id="btnStartSnowball" disabled>Start import &amp; snowball</button>
+                    <button type="button" class="primary" id="btnStartSnowball" disabled>Build citation network</button>
                     <div class="import-status-cluster" aria-live="polite">
                       <span id="importSpinner" class="import-spinner-host" hidden>
                         <span class="import-spinner" aria-hidden="true"></span>
-                        <span class="visually-hidden">Import and snowball in progress</span>
+                        <span class="visually-hidden">Building citation network</span>
                       </span>
                       <p id="importStatus" class="status"></p>
                     </div>
@@ -125,43 +124,43 @@
 
               <div class="pillar__block section-snow-results ui-section ui-section--results">
                 <header class="ui-section__head">
-                  <h2 class="ui-section__title">Snowball results</h2>
+                  <h2 class="ui-section__title">Your expanded corpus</h2>
                 </header>
-          <p class="hint"><span id="audit"></span></p>
-          <p class="hint expansion-detail" id="expansionDetail"></p>
-          <div class="chart-box chart-box--solo">
-            <h3>Corpus shape (snowball)</h3>
-            <p class="chart-caption">Papers by discovery round</p>
-            <div class="chart-canvas-wrap">
-              <canvas id="chartRounds" height="200"></canvas>
-            </div>
-          </div>
-          <div class="actions actions--row">
-            <button type="button" class="secondary" id="btnCsvSnowball" disabled>Download snowball CSV</button>
-            <button type="button" class="secondary workflow-next" id="btnGoToTriage" hidden>Continue to AI triage →</button>
-          </div>
-          <div class="table-pager" id="tablePagerSnowball" hidden>
-            <button type="button" class="secondary" id="btnTablePrevSnow">Previous</button>
-            <span id="tablePagerMetaSnow" class="pager-meta" aria-live="polite"></span>
-            <button type="button" class="secondary" id="btnTableNextSnow">Next</button>
-          </div>
-          <div class="table-wrap">
-            <table id="tblSnowball">
-              <thead>
-                <tr>
-                  <th>Round</th>
-                  <th>Dir</th>
-                  <th>Year</th>
-                  <th>DOI</th>
-                  <th>Title</th>
-                  <th>OpenAlex</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
+                <p class="hint"><span id="audit"></span></p>
+                <p class="hint expansion-detail" id="expansionDetail"></p>
+                <div class="chart-box chart-box--solo">
+                  <h3>How papers were found</h3>
+                  <p class="chart-caption">By discovery wave</p>
+                  <div class="chart-canvas-wrap">
+                    <canvas id="chartRounds" height="200"></canvas>
+                  </div>
+                </div>
+                <div class="actions actions--row">
+                  <button type="button" class="secondary" id="btnCsvSnowball" disabled>Export corpus</button>
+                  <button type="button" class="secondary workflow-next" id="btnGoToTriage" hidden>Screen for relevance →</button>
+                </div>
+                <div class="table-pager" id="tablePagerSnowball" hidden>
+                  <button type="button" class="secondary" id="btnTablePrevSnow">Previous</button>
+                  <span id="tablePagerMetaSnow" class="pager-meta" aria-live="polite"></span>
+                  <button type="button" class="secondary" id="btnTableNextSnow">Next</button>
+                </div>
+                <div class="table-wrap">
+                  <table id="tblSnowball">
+                    <thead>
+                      <tr>
+                        <th>Wave</th>
+                        <th>Link</th>
+                        <th>Year</th>
+                        <th>DOI</th>
+                        <th>Title</th>
+                        <th>ID</th>
+                        <th>View</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -173,47 +172,49 @@
             aria-hidden="true"
           >
             <p class="workflow-step-badge" aria-hidden="true">Step 2</p>
-            <div class="card pillar pillar--triage workflow-stack" aria-label="AI triage">
+            <div class="card pillar pillar--triage workflow-stack" aria-label="Screen papers">
               <div class="pillar__block grid-triage-config ui-section">
                 <header class="ui-section__head">
-                  <h2 class="ui-section__title">AI triage</h2>
+                  <h2 class="ui-section__title">Screen papers</h2>
                   <p class="notice notice--subtle triage-limit-callout" role="note">
-                    <strong>Batch limit:</strong> each request processes <strong>1–10 rows</strong>. Run batches in sequence, then export accumulated results.
+                    <strong>Up to 10 papers</strong> per screening pass. Work through the list in batches, then export when finished.
                   </p>
                 </header>
                 <div class="form-stack">
                   <p class="hint">
-            Upload a <strong>snowball export CSV</strong>, or load the current run with the button below. Criteria are advisory—manual screening stays authoritative.
-          </p>
-          <label>Triage CSV (snowball export or bibliography-style CSV)
-            <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" />
-          </label>
-          <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
-          <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Load current snowball results</button>
-          <div class="grid triage-batch-grid">
-            <label>Start at row (1-based)
-              <input type="number" id="triageRowStart" min="1" value="1" />
-            </label>
-            <label>Rows this run (max 10)
-              <input type="number" id="triageBatchSize" min="1" max="10" value="10" />
-            </label>
-          </div>
-          <textarea id="criteria" rows="6" placeholder="Topic + IC/EC + RQs…"></textarea>
-          <label>LLM provider
-            <select id="triageProvider">
-              <option value="gemini">Google Gemini (free tier · AI Studio)</option>
-              <option value="anthropic">Anthropic Claude</option>
-            </select>
-          </label>
-          <label id="llmKeyLabel"><span id="llmKeyLabelText">Google AI Studio API key (sent to this local server only; never stored)</span>
-            <input type="password" id="llmKey" autocomplete="off" />
-          </label>
-          <label class="inline">Model
-            <select id="model"></select>
-          </label>
+                    Upload a paper list or use your latest citation network. Your criteria guide the AI—you decide what counts.
+                  </p>
+                  <label>Paper dataset
+                    <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" />
+                  </label>
+                  <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
+                  <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Use previous results</button>
+                  <div class="grid triage-batch-grid">
+                    <label>Begin at paper #
+                      <input type="number" id="triageRowStart" min="1" value="1" />
+                    </label>
+                    <label>Papers to review
+                      <input type="number" id="triageBatchSize" min="1" max="10" value="10" />
+                    </label>
+                  </div>
+                  <label>Screening criteria
+                    <textarea id="criteria" rows="6" placeholder="Topic, inclusion criteria, research questions…"></textarea>
+                  </label>
+                  <label>AI service
+                    <select id="triageProvider">
+                      <option value="gemini">Google Gemini</option>
+                      <option value="anthropic">Anthropic Claude</option>
+                    </select>
+                  </label>
+                  <label id="llmKeyLabel"><span id="llmKeyLabelText">API key (used on this computer only, not saved)</span>
+                    <input type="password" id="llmKey" autocomplete="off" />
+                  </label>
+                  <label class="inline">Model
+                    <select id="model"></select>
+                  </label>
                   <div class="form-actions">
-                    <button type="button" class="primary" id="btnTriage" disabled>Run triage on batch</button>
-                    <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run, then click “Load current snowball results.”</p>
+                    <button type="button" class="primary" id="btnTriage" disabled>Screen this batch</button>
+                    <p id="triageGateHint" class="status triage-gate-hint">Add a paper list or build a citation network, then choose Use previous results.</p>
                     <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
                   </div>
                 </div>
@@ -221,46 +222,46 @@
 
               <div class="pillar__block section-triage-results ui-section ui-section--results">
                 <header class="ui-section__head">
-                  <h2 class="ui-section__title">Triage results</h2>
+                  <h2 class="ui-section__title">Screening results</h2>
                   <p class="callout" id="chartCallout">
-                    <strong>Advisory scores only</strong> — snowballing finds linked papers; triage estimates topic fit. Manual screening stays authoritative.
+                    Scores are advisory—use them to prioritize reading, not as final include/exclude decisions.
                   </p>
                 </header>
-          <p class="hint" id="triageAccumHint">No triage batches completed yet—run triage on a batch above.</p>
-          <div class="chart-box chart-box--solo">
-            <h3>Estimated relevance (AI triage)</h3>
-            <p class="chart-caption" id="relevanceCaption">Accumulated triaged rows appear here.</p>
-            <div class="chart-canvas-wrap">
-              <canvas id="chartRelevance" height="200"></canvas>
-            </div>
-            <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
-          </div>
-          <div class="actions">
-            <button type="button" class="secondary" id="btnCsvTriage" disabled>Download triage CSV (accumulated)</button>
-          </div>
-          <div class="table-pager" id="tablePagerTriage" hidden>
-            <button type="button" class="secondary" id="btnTablePrevTriage">Previous</button>
-            <span id="tablePagerMetaTriage" class="pager-meta" aria-live="polite"></span>
-            <button type="button" class="secondary" id="btnTableNextTriage">Next</button>
-          </div>
-          <div class="table-wrap">
-            <table id="tblTriage">
-              <thead>
-                <tr>
-                  <th>Round</th>
-                  <th>Dir</th>
-                  <th>Year</th>
-                  <th>DOI</th>
-                  <th>Title</th>
-                  <th>OpenAlex</th>
-                  <th>Relevance</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
+                <p class="hint" id="triageAccumHint">No screening runs yet—screen a batch above to see results here.</p>
+                <div class="chart-box chart-box--solo">
+                  <h3>Relevance overview</h3>
+                  <p class="chart-caption" id="relevanceCaption">Screened papers will appear here.</p>
+                  <div class="chart-canvas-wrap">
+                    <canvas id="chartRelevance" height="200"></canvas>
+                  </div>
+                  <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
+                </div>
+                <div class="actions">
+                  <button type="button" class="secondary" id="btnCsvTriage" disabled>Export screening results</button>
+                </div>
+                <div class="table-pager" id="tablePagerTriage" hidden>
+                  <button type="button" class="secondary" id="btnTablePrevTriage">Previous</button>
+                  <span id="tablePagerMetaTriage" class="pager-meta" aria-live="polite"></span>
+                  <button type="button" class="secondary" id="btnTableNextTriage">Next</button>
+                </div>
+                <div class="table-wrap">
+                  <table id="tblTriage">
+                    <thead>
+                      <tr>
+                        <th>Wave</th>
+                        <th>Link</th>
+                        <th>Year</th>
+                        <th>DOI</th>
+                        <th>Title</th>
+                        <th>ID</th>
+                        <th>Score</th>
+                        <th>View</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -268,7 +269,7 @@
     </main>
 
     <footer>
-      <p>For method reporting: cite OpenAlex usage and document rounds, caps, and that candidates require independent screening.</p>
+      <p>For your methods section: note OpenAlex usage, search settings, and that every candidate still needs independent screening.</p>
     </footer>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
