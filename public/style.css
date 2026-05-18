@@ -782,6 +782,28 @@ button.secondary:hover:not(:disabled),
   display: none !important;
 }
 
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  margin: var(--space-4) 0;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-inset) 55%, transparent);
+  border: 1px solid var(--border);
+}
+
+.loading-state[hidden] {
+  display: none !important;
+}
+
+.loading-state__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .empty-state__title {
   margin: 0 0 var(--space-2);
   font-size: var(--text-base);

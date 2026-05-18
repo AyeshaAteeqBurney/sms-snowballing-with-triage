@@ -339,14 +339,61 @@ function syncResultsEmptyStates() {
   const hasSnow = lastRows.length > 0;
   const snowEmpty = $("snowballEmpty");
   const snowBody = $("snowballResultsBody");
-  if (snowEmpty) snowEmpty.hidden = hasSnow;
-  if (snowBody) snowBody.hidden = !hasSnow;
+  const snowLoadingEl = $("snowballLoading");
+  const snowLoading = !!snowLoadingEl && !snowLoadingEl.hidden;
+  if (snowEmpty) snowEmpty.hidden = hasSnow || snowLoading;
+  if (snowBody) snowBody.hidden = !hasSnow || snowLoading;
 
   const hasTriage = triageMergedRows.length > 0;
   const triageEmpty = $("triageEmpty");
   const triageBody = $("triageResultsBody");
-  if (triageEmpty) triageEmpty.hidden = hasTriage;
-  if (triageBody) triageBody.hidden = !hasTriage;
+  const triageLoadingEl = $("triageLoading");
+  const triageLoading = !!triageLoadingEl && !triageLoadingEl.hidden;
+  if (triageEmpty) triageEmpty.hidden = hasTriage || triageLoading;
+  if (triageBody) triageBody.hidden = !hasTriage || triageLoading;
+}
+
+function setSnowballLoading(on, text = "") {
+  const loading = $("snowballLoading");
+  const loadingText = $("snowballLoadingText");
+  if (loadingText && text) loadingText.textContent = text;
+  if (loading) loading.hidden = !on;
+  syncResultsEmptyStates();
+}
+
+function setTriageLoading(on, text = "") {
+  const loading = $("triageLoading");
+  const loadingText = $("triageLoadingText");
+  if (loadingText && text) loadingText.textContent = text;
+  if (loading) loading.hidden = !on;
+  syncResultsEmptyStates();
+}
+
+function resetSnowballDisplay() {
+  lastRows = [];
+  lastAudit = null;
+  snowballTablePageIndex = 0;
+  $("audit").textContent = "";
+  $("expansionDetail").innerHTML = "";
+  $("btnCsvSnowball").disabled = true;
+  const goTriage = $("btnGoToTriage");
+  if (goTriage) goTriage.hidden = true;
+  renderSnowballTable();
+  updateChartsSnowball([]);
+}
+
+function resetTriageDisplay() {
+  triageAccumulatedMap.clear();
+  triageMergedRows = [];
+  triageTablePageIndex = 0;
+  $("btnCsvTriage").disabled = true;
+  const triageStatus = $("triageStatus");
+  if (triageStatus) {
+    triageStatus.className = "triage-status-msg";
+    triageStatus.textContent = "";
+  }
+  renderTriageTable();
+  updateChartsTriage([]);
 }
 
 function renderSnowballTable() {
@@ -1162,11 +1209,16 @@ $("csvFile").addEventListener("change", (ev) => {
   st.classList.remove("err", "status-busy");
   setImportSpinner(false);
   if (!pendingImportFile) {
+    setSnowballLoading(false);
     st.textContent = "";
     $("btnStartSnowball").disabled = true;
     updateFilePickHint();
     return;
   }
+  resetSnowballDisplay();
+  triageSourceRows = [];
+  syncTriageAvailability();
+  setSnowballLoading(true, "New file selected. Build citation network to load results.");
   $("btnStartSnowball").disabled = false;
   if (!importRunActive) {
     st.textContent = "";
@@ -1184,6 +1236,8 @@ $("btnStartSnowball").addEventListener("click", async () => {
 
   setSnowballControlsLocked(true);
   setImportSpinner(true);
+  resetSnowballDisplay();
+  setSnowballLoading(true, "Building citation network...");
   st.classList.add("status-busy");
   st.textContent =
     "Reading your reference list and preparing seed papers…";
@@ -1197,6 +1251,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     st.classList.add("err");
     setImportSpinner(false);
     setSnowballControlsLocked(false);
+    setSnowballLoading(false);
     updateFilePickHint();
     syncTriageAvailability();
     return;
@@ -1278,6 +1333,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     }
     st.classList.remove("status-busy");
     st.textContent = doneMsg;
+    setSnowballLoading(false);
   } catch (e) {
     st.classList.remove("status-busy");
     st.textContent = e.message || String(e);
@@ -1285,6 +1341,7 @@ $("btnStartSnowball").addEventListener("click", async () => {
     $("expansionDetail").innerHTML = "";
     $("audit").textContent = "";
     updateChartsSnowball([]);
+    setSnowballLoading(false);
   } finally {
     setImportSpinner(false);
     setSnowballControlsLocked(false);
@@ -1295,6 +1352,8 @@ $("btnStartSnowball").addEventListener("click", async () => {
 
 $("btnLoadSnowballIntoTriage").addEventListener("click", () => {
   if (!lastRows.length) return;
+  setTriageLoading(true, "Loading previous results...");
+  resetTriageDisplay();
   triageSourceRows = JSON.parse(JSON.stringify(lastRows));
   const hint = $("triageCsvHint");
   if (hint) {
@@ -1304,17 +1363,22 @@ $("btnLoadSnowballIntoTriage").addEventListener("click", () => {
   const fileInput = $("triageCsvFile");
   if (fileInput) fileInput.value = "";
   syncTriageAvailability();
+  setTriageLoading(false);
 });
 
 $("triageCsvFile").addEventListener("change", async (ev) => {
   const f = ev.target.files?.[0];
   const hint = $("triageCsvHint");
+  setTriageLoading(false);
   if (!f) {
     triageSourceRows = [];
+    resetTriageDisplay();
     if (hint) hint.hidden = true;
     syncTriageAvailability();
     return;
   }
+  resetTriageDisplay();
+  setTriageLoading(true, "Loading paper dataset...");
   try {
     const text = await f.text();
     triageSourceRows = await parseTriageCsvViaApi(text, f.name);
@@ -1328,6 +1392,8 @@ $("triageCsvFile").addEventListener("change", async (ev) => {
       hint.hidden = false;
       hint.textContent = e.message || String(e);
     }
+  } finally {
+    setTriageLoading(false);
   }
   syncTriageAvailability();
 });
