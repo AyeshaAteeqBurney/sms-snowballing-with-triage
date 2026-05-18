@@ -15,9 +15,66 @@ let chartRoundsInst = null;
 let chartRelevanceInst = null;
 
 const MAX_TRIAGE_BATCH = 10;
+const THEME_STORAGE_KEY = "sra-theme";
 
 function $(id) {
   return document.getElementById(id);
+}
+
+function resolveTheme() {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") return stored;
+  if (typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+  return "light";
+}
+
+function applyTheme(theme, options = {}) {
+  const { refreshCharts = false } = options;
+  const next = theme === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", next);
+
+  const btn = $("btnThemeToggle");
+  if (btn) {
+    const isDark = next === "dark";
+    btn.setAttribute(
+      "aria-label",
+      isDark ? "Switch to light mode" : "Switch to dark mode"
+    );
+    const label = btn.querySelector(".theme-toggle__label");
+    if (label) label.textContent = isDark ? "Light" : "Dark";
+  }
+
+  if (refreshCharts && typeof Chart !== "undefined") {
+    updateChartsSnowball(lastRows);
+    updateChartsTriage(triageMergedRows);
+  }
+}
+
+function initThemeToggle() {
+  applyTheme(resolveTheme(), { refreshCharts: false });
+
+  const btn = $("btnThemeToggle");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyTheme(next, { refreshCharts: true });
+  });
+
+  if (typeof window.matchMedia === "function") {
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", () => {
+        if (localStorage.getItem(THEME_STORAGE_KEY)) return;
+        applyTheme(resolveTheme(), { refreshCharts: true });
+      });
+  }
 }
 
 function escapeCell(s) {
@@ -1039,19 +1096,12 @@ $("btnTriage").addEventListener("click", async () => {
   }
 });
 
+initThemeToggle();
+
 // Initial empty charts
 if (typeof Chart !== "undefined") {
   updateChartsSnowball([]);
   updateChartsTriage([]);
-}
-
-if (typeof window.matchMedia === "function") {
-  window
-    .matchMedia("(prefers-color-scheme: dark)")
-    .addEventListener("change", () => {
-      updateChartsSnowball(lastRows);
-      updateChartsTriage(triageMergedRows);
-    });
 }
 
 function setImportSpinner(on) {

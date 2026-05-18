@@ -5,24 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Systematic Review Assistant</title>
+  <script>
+    (function () {
+      var key = "sra-theme";
+      var stored = localStorage.getItem(key);
+      var dark =
+        stored === "dark" ||
+        (stored !== "light" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
     <header class="page-header">
-      <div class="page-header__inner">
-        <h1 class="page-header__title">Systematic Review Assistant</h1>
-        <p class="page-header__lede">
-          Expand your bibliography with citation snowballing, then triage papers using AI-assisted screening.
-        </p>
-        <ol class="page-header__steps">
-          <li>Upload bibliography</li>
-          <li>Expand citations with OpenAlex</li>
-          <li>Review papers with AI triage</li>
-        </ol>
-        <p class="page-header__note">
-          Triage is advisory and capped at 10 papers per request—not an inclusion decision.
-        </p>
+      <div class="page-header__bar">
+        <div class="page-header__inner">
+          <h1 class="page-header__title">Systematic Review Assistant</h1>
+          <p class="page-header__lede">
+            Expand your bibliography with citation snowballing, then triage papers using AI-assisted screening.
+          </p>
+          <ol class="page-header__steps">
+            <li>Upload bibliography</li>
+            <li>Expand citations with OpenAlex</li>
+            <li>Review papers with AI triage</li>
+          </ol>
+          <p class="page-header__note">
+            Triage is advisory and capped at 10 papers per request—not an inclusion decision.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="theme-toggle"
+          id="btnThemeToggle"
+          aria-label="Switch to dark mode"
+          title="Toggle light / dark theme"
+        >
+          <span class="theme-toggle__icon" aria-hidden="true"></span>
+          <span class="theme-toggle__label">Dark</span>
+        </button>
       </div>
     </header>
 
