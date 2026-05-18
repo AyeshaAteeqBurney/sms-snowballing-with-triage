@@ -582,6 +582,12 @@ label.field {
   resize: vertical;
 }
 
+/* Mask API key without type=password (avoids browser “Save password?” prompts). */
+.field__control--masked {
+  -webkit-text-security: disc;
+  font-family: var(--font);
+}
+
 .field__control--file {
   padding: 0.55rem 0.75rem;
   font-size: var(--text-sm);

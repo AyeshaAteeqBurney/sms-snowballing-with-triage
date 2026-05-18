@@ -1346,8 +1346,20 @@ function syncTriageKeyLabel() {
   if (!span) return;
   span.textContent =
     prov === "gemini"
-      ? "Google AI Studio API key (used on this computer only, not saved)"
-      : "Anthropic API key (used on this computer only, not saved)";
+      ? "Google AI Studio API key (not stored by this app)"
+      : "Anthropic API key (not stored by this app)";
+}
+
+function initLlmKeyField() {
+  const el = $("llmKey");
+  if (!el) return;
+  el.setAttribute("readonly", "readonly");
+  el.addEventListener("focus", () => {
+    el.removeAttribute("readonly");
+  });
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") ev.preventDefault();
+  });
 }
 
 $("triageProvider").addEventListener("change", () => {
@@ -1365,6 +1377,7 @@ $("criteria").addEventListener("input", () => persistSessionState());
 
 syncTriageModelSelect();
 syncTriageKeyLabel();
+initLlmKeyField();
 
 $("btnTriage").addEventListener("click", async () => {
   if (triageRunActive || importRunActive) return;
@@ -1441,6 +1454,8 @@ $("btnTriage").addEventListener("click", async () => {
     $("btnCsvTriage").disabled = triageMergedRows.length === 0;
     st.className = "triage-status-msg";
     st.textContent = `Screening complete for ${enriched.length} paper(s). Results are below—increase the starting paper number for the next batch or export all results.`;
+    const llmKeyEl = $("llmKey");
+    if (llmKeyEl) llmKeyEl.value = "";
     renderTriageTable();
     updateChartsTriage(triageMergedRows);
     persistSessionState();

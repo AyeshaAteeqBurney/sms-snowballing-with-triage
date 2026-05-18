@@ -266,8 +266,26 @@
                         </select>
                       </label>
                       <label class="field" id="llmKeyLabel"><span id="llmKeyLabelText">API key (used on this computer only, not saved)</span>
-                        <input type="password" id="llmKey" autocomplete="off" class="field__control" />
+                        <input
+                          type="text"
+                          id="llmKey"
+                          name="llm-api-token"
+                          class="field__control field__control--masked"
+                          autocomplete="off"
+                          autocorrect="off"
+                          autocapitalize="off"
+                          spellcheck="false"
+                          inputmode="text"
+                          data-form-type="other"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          data-bwignore="true"
+                          aria-describedby="llmKeyBrowserHint"
+                        />
                       </label>
+                      <p id="llmKeyBrowserHint" class="hint">
+                        If Chrome asks to save a password, choose <strong>Never</strong>—this is an API token, not a site login.
+                      </p>
                       <label class="field">Model
                         <select id="model" class="field__control"></select>
                       </label>

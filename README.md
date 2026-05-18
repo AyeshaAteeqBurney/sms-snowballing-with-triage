@@ -90,7 +90,7 @@ Rows appear in the accumulated file after each **Run triage on batch**; re-runni
 
 ## AI triage
 
-Paste your topic and IC/EC / RQ text. Choose **Google Gemini** (default) or **Anthropic Claude**. For Gemini, create a free API key in [Google AI Studio](https://aistudio.google.com/apikey) and paste it in the UI. The key is sent to **your local server only** for that request and is not stored by this app. Respect Google’s and Anthropic’s rate limits and terms.
+Paste your topic and IC/EC / RQ text. Choose **Google Gemini** (default) or **Anthropic Claude**. For Gemini, create a free API key in [Google AI Studio](https://aistudio.google.com/apikey) and paste it in the UI. The key is sent to **your local server only** (`127.0.0.1`) for that request, is **not saved** to disk or `localStorage`, and is **cleared from the form** after a successful screening run. The field is masked but **not** a browser password field—if Chrome still offers **Save password?**, choose **Never** (it is an API token). While a batch is running, the key can still appear in **DevTools → Network**—use a scoped/revocable key and avoid screen-sharing during triage. Respect Google’s and Anthropic’s rate limits and terms.
 
 **Gemini “quota exceeded” / `limit: 0`:** Prefer **Gemini 2.5 Flash** or **Flash-Lite** in the model menu; some projects see no free quota on **2.0 Flash**. The server **retries** rate limits automatically and spaces requests. If limits stay at zero, check [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) and your Cloud project / billing settings (Google often requires a linked billing account to unlock non-zero free-tier quotas even when usage stays within the free allowance).
 
