@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Local SMS snowballing via OpenAlex + optional LLM screening hints",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "prepare": "node scripts/install-git-hooks.mjs",
+    "install-hooks": "node scripts/install-git-hooks.mjs"
   },
   "engines": {
     "node": ">=18"

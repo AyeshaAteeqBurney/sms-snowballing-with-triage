@@ -13,11 +13,16 @@ Local web UI for **backward + forward citation snowballing** using the [OpenAlex
 
 ```bash
 cd sms-snowballing-with-triage
-npm install
+npm install   # also runs prepare → installs git pre-commit hook
 npm start
 ```
 
 Open **http://localhost:3847** (or the port printed in the terminal).
+
+### Security before commit
+
+- **Git hook:** `npm install` sets `core.hooksPath` to `.githooks` and runs automated checks on staged files (secrets, API key patterns, `.env`, etc.). Re-install anytime: `npm run install-hooks`.
+- **Cursor:** Rule `.cursor/rules/pre-commit-security.mdc` and subagent `.cursor/agents/security-reviewer.md` — ask **@security-reviewer** before commit for a full diff review; Critical findings should be fixed first.
 
 ## What to enter
 
