@@ -16,26 +16,27 @@
       document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
     })();
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="wrap">
-    <header class="page-header">
-      <div class="page-header__bar">
-        <div class="page-header__inner">
-          <h1 class="page-header__title">Systematic Review Assistant</h1>
-          <p class="page-header__lede">
-            Grow your reading list from seed papers, then prioritize what to read with AI-assisted screening.
-          </p>
-          <ol class="page-header__steps">
-            <li>Upload your bibliography</li>
-            <li>Follow citations outward</li>
-            <li>Screen for relevance</li>
-          </ol>
-          <p class="page-header__note">
-            AI screening suggests where to focus—it does not decide inclusion.
-          </p>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="shell-container topbar__inner">
+        <div class="topbar__brand">
+          <span class="topbar__mark" aria-hidden="true">SRA</span>
+          <div class="topbar__titles">
+            <h1 class="topbar__title">Systematic Review Assistant</h1>
+            <p class="topbar__tagline">Grow your corpus, then screen for relevance with AI guidance.</p>
+          </div>
         </div>
+        <ol class="topbar__steps" aria-label="Workflow">
+          <li>Upload bibliography</li>
+          <li>Follow citations</li>
+          <li>Screen papers</li>
+        </ol>
         <button
           type="button"
           class="theme-toggle"
@@ -49,228 +50,249 @@
       </div>
     </header>
 
-    <main class="page-main">
-      <div class="workflow" id="workflow">
-        <div class="workflow-tabs" role="tablist" aria-label="Workflow">
-          <button
-            type="button"
-            class="workflow-tabs__btn workflow-tabs__btn--active"
-            role="tab"
-            id="tab-snowball"
-            aria-selected="true"
-            aria-controls="panel-snowball"
-            data-tab="snowball"
-          >
-            Find papers
-          </button>
-          <button
-            type="button"
-            class="workflow-tabs__btn"
-            role="tab"
-            id="tab-triage"
-            aria-selected="false"
-            aria-controls="panel-triage"
-            data-tab="triage"
-            tabindex="-1"
-          >
-            Screen papers
-          </button>
-        </div>
+    <main class="workspace">
+      <div class="shell-container workspace__inner">
+        <p class="workspace__disclaimer">AI screening suggests where to focus—it does not decide inclusion.</p>
 
-        <div class="workflow-panels">
-          <section
-            class="workflow-panel workflow-panel--active"
-            role="tabpanel"
-            id="panel-snowball"
-            aria-labelledby="tab-snowball"
-          >
-            <p class="workflow-step-badge" aria-hidden="true">Step 1</p>
-            <div class="card pillar pillar--snowball workflow-stack" aria-label="Find papers">
-              <div class="pillar__block grid-snowball-config ui-section">
-                <header class="ui-section__head">
-                  <h2 class="ui-section__title">Build your corpus</h2>
-                  <p class="hint ui-section__lede">
-                    Upload a reference list with titles and DOIs when you have them. Each run works through part of a large list automatically.
-                  </p>
-                </header>
-                <div class="form-stack">
-                  <label class="inline">Reference list
-                    <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
-                  </label>
-                  <p id="filePickHint" class="hint file-pick-hint" hidden></p>
-                  <div class="grid snowball-caps-grid">
-                    <label>Expansion rounds
-                      <input type="number" id="maxRounds" min="1" max="10" value="2" />
-                    </label>
-                    <label>References per paper
-                      <input type="number" id="maxBack" min="1" max="500" value="40" />
-                    </label>
-                    <label>Citing papers per paper
-                      <input type="number" id="maxFwd" min="1" max="500" value="60" />
-                    </label>
+        <div class="workspace-frame" id="workflow">
+          <div class="workflow-tabs" role="tablist" aria-label="Workflow">
+            <button
+              type="button"
+              class="workflow-tabs__btn workflow-tabs__btn--active"
+              role="tab"
+              id="tab-snowball"
+              aria-selected="true"
+              aria-controls="panel-snowball"
+              data-tab="snowball"
+            >
+              <span class="workflow-tabs__label">Find papers</span>
+              <span class="workflow-tabs__meta">Step 1</span>
+            </button>
+            <button
+              type="button"
+              class="workflow-tabs__btn"
+              role="tab"
+              id="tab-triage"
+              aria-selected="false"
+              aria-controls="panel-triage"
+              data-tab="triage"
+              tabindex="-1"
+            >
+              <span class="workflow-tabs__label">Screen papers</span>
+              <span class="workflow-tabs__meta">Step 2</span>
+            </button>
+          </div>
+
+          <div class="workflow-body">
+            <div class="workflow-panels">
+              <section
+                class="workflow-panel workflow-panel--active"
+                role="tabpanel"
+                id="panel-snowball"
+                aria-labelledby="tab-snowball"
+              >
+                <div class="workspace-panel pillar pillar--snowball" aria-label="Find papers">
+                  <div class="pillar__block pillar__block--setup ui-section grid-snowball-config">
+                    <header class="ui-section__head">
+                      <h2 class="ui-section__title">Build your corpus</h2>
+                      <p class="hint ui-section__lede">
+                        Upload a reference list with titles and DOIs when you have them. Large lists are processed in parts automatically.
+                      </p>
+                    </header>
+                    <div class="form-stack">
+                      <label class="field">Reference list
+                        <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" class="field__control field__control--file" />
+                      </label>
+                      <p id="filePickHint" class="hint file-pick-hint" hidden></p>
+                      <div class="field-group">
+                        <span class="field-group__label">Search depth</span>
+                        <div class="grid snowball-caps-grid">
+                          <label class="field">Expansion rounds
+                            <input type="number" id="maxRounds" min="1" max="10" value="2" class="field__control" />
+                          </label>
+                          <label class="field">References per paper
+                            <input type="number" id="maxBack" min="1" max="500" value="40" class="field__control" />
+                          </label>
+                          <label class="field">Citing papers per paper
+                            <input type="number" id="maxFwd" min="1" max="500" value="60" class="field__control" />
+                          </label>
+                        </div>
+                      </div>
+                      <div class="form-actions">
+                        <button type="button" class="btn btn--primary primary" id="btnStartSnowball" disabled>Build citation network</button>
+                        <div class="import-status-cluster" aria-live="polite">
+                          <span id="importSpinner" class="import-spinner-host" hidden>
+                            <span class="import-spinner" aria-hidden="true"></span>
+                            <span class="visually-hidden">Building citation network</span>
+                          </span>
+                          <p id="importStatus" class="status"></p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-actions">
-                    <button type="button" class="primary" id="btnStartSnowball" disabled>Build citation network</button>
-                    <div class="import-status-cluster" aria-live="polite">
-                      <span id="importSpinner" class="import-spinner-host" hidden>
-                        <span class="import-spinner" aria-hidden="true"></span>
-                        <span class="visually-hidden">Building citation network</span>
-                      </span>
-                      <p id="importStatus" class="status"></p>
+
+                  <div class="pillar__block pillar__block--results ui-section section-snow-results">
+                    <header class="ui-section__head">
+                      <h2 class="ui-section__title">Your expanded corpus</h2>
+                    </header>
+                    <p class="hint"><span id="audit"></span></p>
+                    <p class="hint expansion-detail" id="expansionDetail"></p>
+                    <div class="empty-state" id="snowballEmpty">
+                      <p class="empty-state__title">No papers yet</p>
+                      <p class="empty-state__text">Build a citation network to see discovered papers here.</p>
+                    </div>
+                    <div class="results-body" id="snowballResultsBody">
+                      <div class="chart-box chart-box--solo">
+                        <h3>How papers were found</h3>
+                        <p class="chart-caption">By discovery wave</p>
+                        <div class="chart-canvas-wrap">
+                          <canvas id="chartRounds" height="200"></canvas>
+                        </div>
+                      </div>
+                      <div class="actions actions--row">
+                        <button type="button" class="btn btn--secondary secondary" id="btnCsvSnowball" disabled>Export corpus</button>
+                        <button type="button" class="btn btn--secondary secondary workflow-next" id="btnGoToTriage" hidden>Screen for relevance →</button>
+                      </div>
+                      <div class="table-pager" id="tablePagerSnowball" hidden>
+                        <button type="button" class="btn btn--secondary secondary btn--sm" id="btnTablePrevSnow">Previous</button>
+                        <span id="tablePagerMetaSnow" class="pager-meta" aria-live="polite"></span>
+                        <button type="button" class="btn btn--secondary secondary btn--sm" id="btnTableNextSnow">Next</button>
+                      </div>
+                      <div class="table-wrap">
+                        <table id="tblSnowball">
+                          <thead>
+                            <tr>
+                              <th>Wave</th>
+                              <th>Link</th>
+                              <th>Year</th>
+                              <th>DOI</th>
+                              <th>Title</th>
+                              <th>ID</th>
+                              <th>View</th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div class="pillar__block section-snow-results ui-section ui-section--results">
-                <header class="ui-section__head">
-                  <h2 class="ui-section__title">Your expanded corpus</h2>
-                </header>
-                <p class="hint"><span id="audit"></span></p>
-                <p class="hint expansion-detail" id="expansionDetail"></p>
-                <div class="chart-box chart-box--solo">
-                  <h3>How papers were found</h3>
-                  <p class="chart-caption">By discovery wave</p>
-                  <div class="chart-canvas-wrap">
-                    <canvas id="chartRounds" height="200"></canvas>
+              <section
+                class="workflow-panel"
+                role="tabpanel"
+                id="panel-triage"
+                aria-labelledby="tab-triage"
+                aria-hidden="true"
+              >
+                <div class="workspace-panel pillar pillar--triage" aria-label="Screen papers">
+                  <div class="pillar__block pillar__block--setup ui-section grid-triage-config">
+                    <header class="ui-section__head">
+                      <h2 class="ui-section__title">Screen papers</h2>
+                      <p class="notice notice--subtle triage-limit-callout" role="note">
+                        <strong>Up to 10 papers</strong> per pass. Work in batches, then export when finished.
+                      </p>
+                    </header>
+                    <div class="form-stack">
+                      <p class="hint">
+                        Upload a paper list or use your latest citation network. Your criteria guide the AI—you decide what counts.
+                      </p>
+                      <label class="field">Paper dataset
+                        <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" class="field__control field__control--file" />
+                      </label>
+                      <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
+                      <button type="button" class="btn btn--secondary secondary" id="btnLoadSnowballIntoTriage" disabled>Use previous results</button>
+                      <div class="grid triage-batch-grid">
+                        <label class="field">Begin at paper #
+                          <input type="number" id="triageRowStart" min="1" value="1" class="field__control" />
+                        </label>
+                        <label class="field">Papers to review
+                          <input type="number" id="triageBatchSize" min="1" max="10" value="10" class="field__control" />
+                        </label>
+                      </div>
+                      <label class="field">Screening criteria
+                        <textarea id="criteria" rows="6" class="field__control field__control--textarea" placeholder="Topic, inclusion criteria, research questions…"></textarea>
+                      </label>
+                      <label class="field">AI service
+                        <select id="triageProvider" class="field__control">
+                          <option value="gemini">Google Gemini</option>
+                          <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                      </label>
+                      <label class="field" id="llmKeyLabel"><span id="llmKeyLabelText">API key (used on this computer only, not saved)</span>
+                        <input type="password" id="llmKey" autocomplete="off" class="field__control" />
+                      </label>
+                      <label class="field">Model
+                        <select id="model" class="field__control"></select>
+                      </label>
+                      <div class="form-actions">
+                        <button type="button" class="btn btn--primary primary" id="btnTriage" disabled>Screen this batch</button>
+                        <p id="triageGateHint" class="status triage-gate-hint">Add a paper list or build a citation network, then choose Use previous results.</p>
+                        <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pillar__block pillar__block--results ui-section section-triage-results">
+                    <header class="ui-section__head">
+                      <h2 class="ui-section__title">Screening results</h2>
+                      <p class="callout" id="chartCallout">
+                        Scores are advisory—prioritize reading, not final include/exclude decisions.
+                      </p>
+                    </header>
+                    <p class="hint" id="triageAccumHint">No screening runs yet—screen a batch to see results here.</p>
+                    <div class="empty-state" id="triageEmpty">
+                      <p class="empty-state__title">No screened papers yet</p>
+                      <p class="empty-state__text">Run screening on a batch to see relevance scores and charts here.</p>
+                    </div>
+                    <div class="results-body" id="triageResultsBody">
+                      <div class="chart-box chart-box--solo">
+                        <h3>Relevance overview</h3>
+                        <p class="chart-caption" id="relevanceCaption">Screened papers will appear here.</p>
+                        <div class="chart-canvas-wrap">
+                          <canvas id="chartRelevance" height="200"></canvas>
+                        </div>
+                        <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
+                      </div>
+                      <div class="actions">
+                        <button type="button" class="btn btn--secondary secondary" id="btnCsvTriage" disabled>Export screening results</button>
+                      </div>
+                      <div class="table-pager" id="tablePagerTriage" hidden>
+                        <button type="button" class="btn btn--secondary secondary btn--sm" id="btnTablePrevTriage">Previous</button>
+                        <span id="tablePagerMetaTriage" class="pager-meta" aria-live="polite"></span>
+                        <button type="button" class="btn btn--secondary secondary btn--sm" id="btnTableNextTriage">Next</button>
+                      </div>
+                      <div class="table-wrap">
+                        <table id="tblTriage">
+                          <thead>
+                            <tr>
+                              <th>Wave</th>
+                              <th>Link</th>
+                              <th>Year</th>
+                              <th>DOI</th>
+                              <th>Title</th>
+                              <th>ID</th>
+                              <th>Score</th>
+                              <th>View</th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="actions actions--row">
-                  <button type="button" class="secondary" id="btnCsvSnowball" disabled>Export corpus</button>
-                  <button type="button" class="secondary workflow-next" id="btnGoToTriage" hidden>Screen for relevance →</button>
-                </div>
-                <div class="table-pager" id="tablePagerSnowball" hidden>
-                  <button type="button" class="secondary" id="btnTablePrevSnow">Previous</button>
-                  <span id="tablePagerMetaSnow" class="pager-meta" aria-live="polite"></span>
-                  <button type="button" class="secondary" id="btnTableNextSnow">Next</button>
-                </div>
-                <div class="table-wrap">
-                  <table id="tblSnowball">
-                    <thead>
-                      <tr>
-                        <th>Wave</th>
-                        <th>Link</th>
-                        <th>Year</th>
-                        <th>DOI</th>
-                        <th>Title</th>
-                        <th>ID</th>
-                        <th>View</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
-                </div>
-              </div>
+              </section>
             </div>
-          </section>
-
-          <section
-            class="workflow-panel"
-            role="tabpanel"
-            id="panel-triage"
-            aria-labelledby="tab-triage"
-            aria-hidden="true"
-          >
-            <p class="workflow-step-badge" aria-hidden="true">Step 2</p>
-            <div class="card pillar pillar--triage workflow-stack" aria-label="Screen papers">
-              <div class="pillar__block grid-triage-config ui-section">
-                <header class="ui-section__head">
-                  <h2 class="ui-section__title">Screen papers</h2>
-                  <p class="notice notice--subtle triage-limit-callout" role="note">
-                    <strong>Up to 10 papers</strong> per screening pass. Work through the list in batches, then export when finished.
-                  </p>
-                </header>
-                <div class="form-stack">
-                  <p class="hint">
-                    Upload a paper list or use your latest citation network. Your criteria guide the AI—you decide what counts.
-                  </p>
-                  <label>Paper dataset
-                    <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" />
-                  </label>
-                  <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
-                  <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Use previous results</button>
-                  <div class="grid triage-batch-grid">
-                    <label>Begin at paper #
-                      <input type="number" id="triageRowStart" min="1" value="1" />
-                    </label>
-                    <label>Papers to review
-                      <input type="number" id="triageBatchSize" min="1" max="10" value="10" />
-                    </label>
-                  </div>
-                  <label>Screening criteria
-                    <textarea id="criteria" rows="6" placeholder="Topic, inclusion criteria, research questions…"></textarea>
-                  </label>
-                  <label>AI service
-                    <select id="triageProvider">
-                      <option value="gemini">Google Gemini</option>
-                      <option value="anthropic">Anthropic Claude</option>
-                    </select>
-                  </label>
-                  <label id="llmKeyLabel"><span id="llmKeyLabelText">API key (used on this computer only, not saved)</span>
-                    <input type="password" id="llmKey" autocomplete="off" />
-                  </label>
-                  <label class="inline">Model
-                    <select id="model"></select>
-                  </label>
-                  <div class="form-actions">
-                    <button type="button" class="primary" id="btnTriage" disabled>Screen this batch</button>
-                    <p id="triageGateHint" class="status triage-gate-hint">Add a paper list or build a citation network, then choose Use previous results.</p>
-                    <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="pillar__block section-triage-results ui-section ui-section--results">
-                <header class="ui-section__head">
-                  <h2 class="ui-section__title">Screening results</h2>
-                  <p class="callout" id="chartCallout">
-                    Scores are advisory—use them to prioritize reading, not as final include/exclude decisions.
-                  </p>
-                </header>
-                <p class="hint" id="triageAccumHint">No screening runs yet—screen a batch above to see results here.</p>
-                <div class="chart-box chart-box--solo">
-                  <h3>Relevance overview</h3>
-                  <p class="chart-caption" id="relevanceCaption">Screened papers will appear here.</p>
-                  <div class="chart-canvas-wrap">
-                    <canvas id="chartRelevance" height="200"></canvas>
-                  </div>
-                  <p class="chart-summary" id="relevanceSummary" aria-live="polite"></p>
-                </div>
-                <div class="actions">
-                  <button type="button" class="secondary" id="btnCsvTriage" disabled>Export screening results</button>
-                </div>
-                <div class="table-pager" id="tablePagerTriage" hidden>
-                  <button type="button" class="secondary" id="btnTablePrevTriage">Previous</button>
-                  <span id="tablePagerMetaTriage" class="pager-meta" aria-live="polite"></span>
-                  <button type="button" class="secondary" id="btnTableNextTriage">Next</button>
-                </div>
-                <div class="table-wrap">
-                  <table id="tblTriage">
-                    <thead>
-                      <tr>
-                        <th>Wave</th>
-                        <th>Link</th>
-                        <th>Year</th>
-                        <th>DOI</th>
-                        <th>Title</th>
-                        <th>ID</th>
-                        <th>Score</th>
-                        <th>View</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
       </div>
-    </main>
 
-    <footer>
-      <p>For your methods section: note OpenAlex usage, search settings, and that every candidate still needs independent screening.</p>
-    </footer>
+      <footer class="shell-footer">
+        <p>For your methods section: note OpenAlex usage, search settings, and that every candidate still needs independent screening.</p>
+      </footer>
+    </main>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <script src="app.js"></script>

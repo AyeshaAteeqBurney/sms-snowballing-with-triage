@@ -335,9 +335,24 @@ function updateChartsTriage(rows) {
   });
 }
 
+function syncResultsEmptyStates() {
+  const hasSnow = lastRows.length > 0;
+  const snowEmpty = $("snowballEmpty");
+  const snowBody = $("snowballResultsBody");
+  if (snowEmpty) snowEmpty.hidden = hasSnow;
+  if (snowBody) snowBody.hidden = !hasSnow;
+
+  const hasTriage = triageMergedRows.length > 0;
+  const triageEmpty = $("triageEmpty");
+  const triageBody = $("triageResultsBody");
+  if (triageEmpty) triageEmpty.hidden = hasTriage;
+  if (triageBody) triageBody.hidden = !hasTriage;
+}
+
 function renderSnowballTable() {
   const rows = lastRows;
   const total = rows.length;
+  syncResultsEmptyStates();
   const tb = $("tblSnowball").querySelector("tbody");
   tb.innerHTML = "";
 
@@ -391,6 +406,7 @@ function renderSnowballTable() {
 function renderTriageTable() {
   const rows = triageMergedRows;
   const total = rows.length;
+  syncResultsEmptyStates();
   const tb = $("tblTriage").querySelector("tbody");
   tb.innerHTML = "";
 
@@ -427,9 +443,10 @@ function renderTriageTable() {
 
   const hintEl = $("triageAccumHint");
   if (hintEl) {
-    hintEl.textContent = total
-      ? `${total} screened paper(s) so far—export results or screen the next batch.`
-      : "No screening runs yet—screen a batch above to see results here.";
+    hintEl.hidden = total === 0;
+    if (total > 0) {
+      hintEl.textContent = `${total} screened paper(s) so far—export results or screen the next batch.`;
+    }
   }
 
   for (const r of slice) {
@@ -1322,3 +1339,4 @@ $("triageCsvFile").addEventListener("change", async (ev) => {
 
 initWorkflowTabs();
 syncTriageAvailability();
+syncResultsEmptyStates();
