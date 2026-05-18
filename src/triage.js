@@ -115,16 +115,29 @@ function parseRetryDelayMsFromGeminiJson(data) {
  * Calls generateContent with retries on 429 / quota / rate limit.
  * Free-tier 429s must not use short exponential backoff (burns the per-minute cap).
  */
-async function fetchGeminiGenerateContent(url, body, signal, rateLimitCallbacks) {
+async function fetchGeminiGenerateContent(
+  url,
+  body,
+  signal,
+  rateLimitCallbacks,
+  geminiApiKey
+) {
   const maxAttempts = 12;
   const onRateLimitWait = rateLimitCallbacks?.onRateLimitWait;
   let lastText = "";
+  const apiKey = String(geminiApiKey || "").trim();
+  if (!apiKey) {
+    throw new Error("Missing Google AI Studio API key for Gemini triage.");
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const res = await fetch(url, {
       method: "POST",
       signal,
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(body),
     });
 
@@ -397,7 +410,7 @@ export async function triageRowsWithGemini(rows, options) {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       model
-    )}:generateContent?key=${encodeURIComponent(geminiApiKey.trim())}`;
+    )}:generateContent`;
 
     const body = {
       systemInstruction: { parts: [{ text: SYSTEM_TEXT }] },
@@ -424,9 +437,13 @@ export async function triageRowsWithGemini(rows, options) {
     await paceGeminiCalls(minIntervalMs, emitChild);
 
     try {
-      const data = await fetchGeminiGenerateContent(url, body, signal, {
-        onRateLimitWait: emitChild,
-      });
+      const data = await fetchGeminiGenerateContent(
+        url,
+        body,
+        signal,
+        { onRateLimitWait: emitChild },
+        geminiApiKey
+      );
 
       const cand = data.candidates?.[0];
       const text =

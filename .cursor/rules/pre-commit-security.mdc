@@ -1,0 +1,60 @@
+---
+description: Run security-reviewer subagent before every git commit; block on Critical findings
+alwaysApply: true
+---
+
+# Pre-commit security review
+
+Whenever the user asks to **commit**, **amend**, or you are about to run `git commit`:
+
+## 1. Run the security-reviewer subagent first
+
+- Delegate to the **`security-reviewer`** subagent (`.cursor/agents/security-reviewer.md`).
+- Use the **Task** tool with `subagent_type: "security-reviewer"` when available.
+- Otherwise follow that agent’s workflow yourself: `git status`, `git diff` (staged + unstaged), and `git diff main...HEAD` (or the repo default branch) for branch context.
+- Review **only changes that would be included in the commit** (staged files; include unstaged only if the user intends to commit everything).
+
+## 2. Report a short summary to the user
+
+Always post before committing:
+
+```markdown
+## Security review (pre-commit)
+
+**Recommendation:** approve | approve with fixes | **block**
+
+| Severity | Count |
+|----------|-------|
+| Critical | N |
+| High     | N |
+| Medium   | N |
+| Low      | N |
+
+### Findings (brief)
+- [Critical/High] Title — file:line — one-line risk
+- …
+
+### Residual risks (if any)
+- …
+```
+
+## 3. Gate the commit on Critical issues
+
+- **If any Critical finding exists:** do **not** run `git commit`. Warn clearly:
+
+  > **Commit blocked:** Critical security issue(s) must be fixed before committing. Say when fixed and I will re-run the security review.
+
+- Offer concrete fixes from the review. Re-run security-reviewer after fixes before committing.
+
+- **If no Critical issues:** you may proceed with the commit. Still mention High/Medium items briefly if present.
+
+- **User override:** Only commit with open Critical issues if the user **explicitly** says to skip security fixes (e.g. “commit anyway”); note the override in your reply.
+
+## 4. LLM / API key changes
+
+If the commit touches triage, `llmKey`, `api/triage`, `src/triage.js`, or session persistence, also verify the **LLM / API key checklist** in `security-reviewer.md`.
+
+## 5. Do not skip
+
+- Do not commit first and review later.
+- Do not treat this as optional when the user rule or commit request is active.

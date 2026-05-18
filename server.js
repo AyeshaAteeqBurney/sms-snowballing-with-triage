@@ -20,6 +20,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const PORT = process.env.PORT || 3847;
+const HOST = process.env.HOST || "127.0.0.1";
+
+/** Strip credential fragments before sending errors to the browser. */
+function sanitizeClientError(message) {
+  return String(message || "")
+    .replace(/([?&]key=)[^&\s"'<>]+/gi, "$1[REDACTED]")
+    .replace(/\bAIza[0-9A-Za-z_-]{20,}\b/g, "[REDACTED]")
+    .replace(/\bsk-ant-[0-9A-Za-z_-]+\b/g, "[REDACTED]");
+}
 
 app.use(express.json({ limit: "15mb" }));
 
@@ -191,11 +200,16 @@ app.post("/api/import-csv-snowball", async (req, res) => {
     console.error(e);
     if (res.headersSent) {
       try {
-        res.write(`${JSON.stringify({ error: e.message || String(e) })}\n`);
+        res.write(
+          `${JSON.stringify({ error: sanitizeClientError(e.message || String(e)) })}\n`
+        );
         res.end();
       } catch (_) {}
     } else {
-      res.status(500).json({ ok: false, error: e.message || String(e) });
+      res.status(500).json({
+        ok: false,
+        error: sanitizeClientError(e.message || String(e)),
+      });
     }
   }
 });
@@ -241,7 +255,10 @@ app.post("/api/import-csv", (req, res) => {
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: e.message || String(e) });
+    res.status(500).json({
+      ok: false,
+      error: sanitizeClientError(e.message || String(e)),
+    });
   }
 });
 
@@ -284,7 +301,7 @@ app.post("/api/snowball", async (req, res) => {
     console.error(e);
     res.status(500).json({
       ok: false,
-      error: e.message || String(e),
+      error: sanitizeClientError(e.message || String(e)),
     });
   }
 });
@@ -378,15 +395,21 @@ app.post("/api/triage", async (req, res) => {
     console.error(e);
     if (res.headersSent) {
       try {
-        res.write(`${JSON.stringify({ error: e.message || String(e) })}\n`);
+        res.write(
+          `${JSON.stringify({ error: sanitizeClientError(e.message || String(e)) })}\n`
+        );
         res.end();
       } catch (_) {}
     } else {
-      res.status(500).json({ ok: false, error: e.message || String(e) });
+      res.status(500).json({
+        ok: false,
+        error: sanitizeClientError(e.message || String(e)),
+      });
     }
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`SMS snowball UI: http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  const displayHost = HOST === "0.0.0.0" ? "localhost" : HOST;
+  console.log(`SMS snowball UI: http://${displayHost}:${PORT}`);
 });
