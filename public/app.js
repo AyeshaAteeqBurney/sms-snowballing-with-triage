@@ -693,9 +693,58 @@ async function parseTriageCsvViaApi(csvText, filename) {
   return data.rows || [];
 }
 
+let activeWorkflowTab = "snowball";
+
+function resizeWorkflowCharts() {
+  requestAnimationFrame(() => {
+    chartRoundsInst?.resize?.();
+    chartRelevanceInst?.resize?.();
+  });
+}
+
+function setWorkflowTab(tabId) {
+  if (tabId !== "snowball" && tabId !== "triage") return;
+  activeWorkflowTab = tabId;
+
+  document.querySelectorAll(".workflow-tabs__btn").forEach((btn) => {
+    const on = btn.dataset.tab === tabId;
+    btn.classList.toggle("workflow-tabs__btn--active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+    btn.tabIndex = on ? 0 : -1;
+  });
+
+  document.querySelectorAll(".workflow-panel").forEach((panel) => {
+    const on = panel.id === `panel-${tabId}`;
+    panel.classList.toggle("workflow-panel--active", on);
+    panel.setAttribute("aria-hidden", on ? "false" : "true");
+  });
+
+  resizeWorkflowCharts();
+}
+
+function initWorkflowTabs() {
+  document.querySelectorAll(".workflow-tabs__btn").forEach((btn) => {
+    btn.addEventListener("click", () => setWorkflowTab(btn.dataset.tab));
+    btn.addEventListener("keydown", (ev) => {
+      if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+      ev.preventDefault();
+      setWorkflowTab(activeWorkflowTab === "snowball" ? "triage" : "snowball");
+    });
+  });
+
+  const goTriage = $("btnGoToTriage");
+  if (goTriage) {
+    goTriage.addEventListener("click", () => setWorkflowTab("triage"));
+  }
+
+  setWorkflowTab("snowball");
+}
+
 function syncTriageAvailability() {
   const hasSource = triageSourceRows.length > 0;
   $("btnLoadSnowballIntoTriage").disabled = lastRows.length === 0;
+  const goTriage = $("btnGoToTriage");
+  if (goTriage) goTriage.hidden = lastRows.length === 0;
   const slice = getCurrentTriageSlice();
   $("btnTriage").disabled = !hasSource || slice.length === 0;
   const gate = $("triageGateHint");
@@ -1219,4 +1268,5 @@ $("triageCsvFile").addEventListener("change", async (ev) => {
   if (el) el.addEventListener("input", () => syncTriageAvailability());
 });
 
+initWorkflowTabs();
 syncTriageAvailability();
