@@ -161,6 +161,27 @@
                     </header>
                     <p class="hint"><span id="audit"></span></p>
                     <p class="hint expansion-detail" id="expansionDetail"></p>
+                    <div class="loading-state loading-state--run" id="snowballLoading" hidden>
+                      <div class="loading-state__head">
+                        <span class="import-spinner" aria-hidden="true"></span>
+                        <div class="loading-state__copy">
+                          <p class="loading-state__text" id="snowballLoadingText">Preparing new upload...</p>
+                          <p class="loading-state__detail" id="snowballLoadingDetail" hidden></p>
+                        </div>
+                      </div>
+                      <div
+                        class="loading-progress"
+                        id="snowballProgress"
+                        role="progressbar"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow="0"
+                        aria-label="Citation network progress"
+                        hidden
+                      >
+                        <div class="loading-progress__bar" id="snowballProgressBar"></div>
+                      </div>
+                    </div>
                     <div class="empty-state" id="snowballEmpty">
                       <p class="empty-state__title">No papers yet</p>
                       <p class="empty-state__text">Build a citation network to see discovered papers here.</p>
@@ -266,6 +287,27 @@
                       </p>
                     </header>
                     <p class="hint" id="triageAccumHint">No screening runs yet—screen a batch to see results here.</p>
+                    <div class="loading-state loading-state--run" id="triageLoading" hidden>
+                      <div class="loading-state__head">
+                        <span class="import-spinner" aria-hidden="true"></span>
+                        <div class="loading-state__copy">
+                          <p class="loading-state__text" id="triageLoadingText">Loading paper dataset...</p>
+                          <p class="loading-state__detail" id="triageLoadingDetail" hidden></p>
+                        </div>
+                      </div>
+                      <div
+                        class="loading-progress"
+                        id="triageProgress"
+                        role="progressbar"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow="0"
+                        aria-label="Screening progress"
+                        hidden
+                      >
+                        <div class="loading-progress__bar" id="triageProgressBar"></div>
+                      </div>
+                    </div>
                     <div class="empty-state" id="triageEmpty">
                       <p class="empty-state__title">No screened papers yet</p>
                       <p class="empty-state__text">Run screening on a batch to see relevance scores and charts here.</p>
