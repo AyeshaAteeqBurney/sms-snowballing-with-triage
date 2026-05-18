@@ -86,15 +86,16 @@
           >
             <p class="workflow-step-badge" aria-hidden="true">Step 1</p>
             <div class="card pillar pillar--snowball workflow-stack" aria-label="Snowballing">
-        <div class="pillar__block grid-snowball-config">
-          <h2>Bibliography CSV &amp; OpenAlex snowball</h2>
-          <p class="hint">
-            Choose a deduplicated export (e.g. Scopus / IEEE) with a <strong>Title</strong> column and <strong>DOI</strong> and/or OpenAlex <strong>W…</strong> id where possible.
-            Only the <strong>first 50 data rows</strong> are processed per run; larger files are truncated with a notice.
-            Snowball expansion uses at most <strong>12 unique DOIs / OpenAlex ids</strong> as seeds (first in file order); more identifiers in the sheet are skipped for speed but rows still merge into results when unmatched.
-            After <strong>Start import &amp; snowball</strong>, results appear below. Export CSV when you are ready for triage.
-          </p>
-          <label class="inline">CSV file
+              <div class="pillar__block grid-snowball-config ui-section">
+                <header class="ui-section__head">
+                  <h2 class="ui-section__title">Bibliography &amp; snowball</h2>
+                  <p class="hint ui-section__lede">
+                    Upload a deduplicated CSV with <strong>Title</strong> and <strong>DOI</strong> or OpenAlex <strong>W…</strong> ids.
+                    Up to <strong>50 rows</strong> and <strong>12 seed identifiers</strong> per run; export when ready for triage.
+                  </p>
+                </header>
+                <div class="form-stack">
+                  <label class="inline">CSV file
             <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
           </label>
           <p id="filePickHint" class="hint file-pick-hint" hidden></p>
@@ -109,18 +110,23 @@
               <input type="number" id="maxFwd" min="1" max="500" value="60" />
             </label>
           </div>
-          <button type="button" class="primary" id="btnStartSnowball" disabled>Start import &amp; snowball</button>
-          <div class="import-status-cluster" aria-live="polite">
-            <span id="importSpinner" class="import-spinner-host" hidden>
-              <span class="import-spinner" aria-hidden="true"></span>
-              <span class="visually-hidden">Import and snowball in progress</span>
-            </span>
-            <p id="importStatus" class="status"></p>
-          </div>
-        </div>
+                  <div class="form-actions">
+                    <button type="button" class="primary" id="btnStartSnowball" disabled>Start import &amp; snowball</button>
+                    <div class="import-status-cluster" aria-live="polite">
+                      <span id="importSpinner" class="import-spinner-host" hidden>
+                        <span class="import-spinner" aria-hidden="true"></span>
+                        <span class="visually-hidden">Import and snowball in progress</span>
+                      </span>
+                      <p id="importStatus" class="status"></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <div class="pillar__block section-snow-results">
-          <h2>Snowball results</h2>
+              <div class="pillar__block section-snow-results ui-section ui-section--results">
+                <header class="ui-section__head">
+                  <h2 class="ui-section__title">Snowball results</h2>
+                </header>
           <p class="hint"><span id="audit"></span></p>
           <p class="hint expansion-detail" id="expansionDetail"></p>
           <div class="chart-box chart-box--solo">
@@ -168,12 +174,15 @@
           >
             <p class="workflow-step-badge" aria-hidden="true">Step 2</p>
             <div class="card pillar pillar--triage workflow-stack" aria-label="AI triage">
-        <div class="pillar__block grid-triage-config">
-          <h2>Advisory AI triage</h2>
-          <div class="callout callout-danger triage-limit-callout" role="note">
-            <strong>Batch limit:</strong> each triage request processes <strong>1–10 rows only</strong> (API-friendly). Choose start row and batch size, run triage, then advance and repeat. Download each batch from triage results or export the accumulated table.
-          </div>
-          <p class="hint">
+              <div class="pillar__block grid-triage-config ui-section">
+                <header class="ui-section__head">
+                  <h2 class="ui-section__title">AI triage</h2>
+                  <p class="notice notice--subtle triage-limit-callout" role="note">
+                    <strong>Batch limit:</strong> each request processes <strong>1–10 rows</strong>. Run batches in sequence, then export accumulated results.
+                  </p>
+                </header>
+                <div class="form-stack">
+                  <p class="hint">
             Upload a <strong>snowball export CSV</strong>, or load the current run with the button below. Criteria are advisory—manual screening stays authoritative.
           </p>
           <label>Triage CSV (snowball export or bibliography-style CSV)
@@ -202,17 +211,21 @@
           <label class="inline">Model
             <select id="model"></select>
           </label>
-          <button type="button" class="primary" id="btnTriage" disabled>Run triage on batch</button>
-          <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run, then click “Load current snowball results.”</p>
-          <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
-        </div>
+                  <div class="form-actions">
+                    <button type="button" class="primary" id="btnTriage" disabled>Run triage on batch</button>
+                    <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run, then click “Load current snowball results.”</p>
+                    <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
+                  </div>
+                </div>
+              </div>
 
-        <div class="pillar__block section-triage-results">
-          <h2>Triage results</h2>
-          <div class="callout" id="chartCallout">
-            <strong>Why triage matters:</strong> Snowballing finds citation-linked papers but not topic fit by itself.
-            <strong>Advisory AI triage</strong> scores batches against your criteria (not inclusion decisions).
-          </div>
+              <div class="pillar__block section-triage-results ui-section ui-section--results">
+                <header class="ui-section__head">
+                  <h2 class="ui-section__title">Triage results</h2>
+                  <p class="callout" id="chartCallout">
+                    <strong>Advisory scores only</strong> — snowballing finds linked papers; triage estimates topic fit. Manual screening stays authoritative.
+                  </p>
+                </header>
           <p class="hint" id="triageAccumHint">No triage batches completed yet—run triage on a batch above.</p>
           <div class="chart-box chart-box--solo">
             <h3>Estimated relevance (AI triage)</h3>
