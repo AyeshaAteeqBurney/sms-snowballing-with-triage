@@ -199,7 +199,7 @@ function updateChartsTriage(rows) {
     data = [1];
     colors = [muted];
     captionEl.textContent =
-      "Run triage on batches (right column)—accumulated rows with AI labels appear here.";
+      "Run triage batches—accumulated rows with AI labels appear here.";
     summaryEl.textContent = "";
   } else if (!rel.triaged) {
     labels = ["Awaiting labels"];

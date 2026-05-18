@@ -84,6 +84,85 @@ body {
   padding: 1.25rem clamp(0.5rem, 1.2vw, 0.75rem) 2.5rem;
   box-sizing: border-box;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Hero: full-width band, content constrained; workspace layout is separate below. */
+.page-header {
+  width: 100%;
+  margin: 0 0 2rem;
+  padding: 0.25rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.page-header__inner {
+  max-width: 40rem;
+  margin: 0;
+}
+
+.page-header__title {
+  font-size: clamp(1.5rem, 2.5vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 0.65rem;
+  color: var(--text);
+}
+
+.page-header__lede {
+  margin: 0 0 1.35rem;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.page-header__steps {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: hero-step;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.page-header__steps li {
+  counter-increment: hero-step;
+  position: relative;
+  padding-left: 1.85rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.page-header__steps li::before {
+  content: counter(hero-step);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  width: 1.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-align: center;
+}
+
+.page-header__note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.page-main {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
 }
 
 .main-grid {
@@ -155,12 +234,6 @@ body {
   white-space: nowrap;
 }
 
-header {
-  margin-bottom: 1.35rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
 h1 {
   font-size: 1.35rem;
   font-weight: 600;
@@ -173,22 +246,6 @@ h2 {
   font-weight: 600;
   margin: 0 0 0.75rem;
   letter-spacing: -0.01em;
-}
-
-.lede {
-  color: var(--muted);
-  max-width: 65ch;
-  font-size: 0.92rem;
-  margin: 0;
-}
-
-.lede a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.lede a:hover {
-  text-decoration: underline;
 }
 
 .card {
@@ -456,7 +513,8 @@ footer {
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
-  max-width: 72ch;
+  width: 100%;
+  max-width: none;
 }
 
 .callout {

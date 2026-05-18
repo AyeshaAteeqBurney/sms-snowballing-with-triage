@@ -4,21 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <title>SMS · OpenAlex snowball + AI triage</title>
+  <title>Systematic Review Assistant</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <h1>Systematic mapping · snowball + advisory AI triage</h1>
-      <p class="lede">
-        <strong>Left column:</strong> upload a bibliography CSV and run OpenAlex snowballing.
-        <strong>Right column:</strong> triage controls and results in one strip—upload your <strong>snowball export CSV</strong> (or load from the current run) and run AI triage in small batches.
-        Triage is limited to <strong>10 works per request</strong>—advance the start row and repeat; download triage CSV after each batch or use the accumulated export.
-        This does not perform inclusion decisions.
-      </p>
+    <header class="page-header">
+      <div class="page-header__inner">
+        <h1 class="page-header__title">Systematic Review Assistant</h1>
+        <p class="page-header__lede">
+          Expand your bibliography with citation snowballing, then triage papers using AI-assisted screening.
+        </p>
+        <ol class="page-header__steps">
+          <li>Upload bibliography</li>
+          <li>Expand citations with OpenAlex</li>
+          <li>Review papers with AI triage</li>
+        </ol>
+        <p class="page-header__note">
+          Triage is advisory and capped at 10 papers per request—not an inclusion decision.
+        </p>
+      </div>
     </header>
 
+    <main class="page-main">
     <div class="main-grid">
       <section class="card pillar pillar--snowball" aria-label="Snowballing">
         <div class="pillar__block grid-snowball-config">
@@ -27,7 +35,7 @@
             Choose a deduplicated export (e.g. Scopus / IEEE) with a <strong>Title</strong> column and <strong>DOI</strong> and/or OpenAlex <strong>W…</strong> id where possible.
             Only the <strong>first 50 data rows</strong> are processed per run; larger files are truncated with a notice.
             Snowball expansion uses at most <strong>12 unique DOIs / OpenAlex ids</strong> as seeds (first in file order); more identifiers in the sheet are skipped for speed but rows still merge into results when unmatched.
-            After <strong>Start import &amp; snowball</strong>, results stack below in this column; export CSV for triage using the right-hand column.
+            After <strong>Start import &amp; snowball</strong>, results appear below. Export CSV when you are ready for triage.
           </p>
           <label class="inline">CSV file
             <input type="file" id="csvFile" accept=".csv,text/csv,text/plain" />
@@ -99,13 +107,13 @@
             <strong>Batch limit:</strong> each triage request processes <strong>1–10 rows only</strong> (API-friendly). Choose start row and batch size, run triage, then advance and repeat. Download each batch from triage results or export the accumulated table.
           </div>
           <p class="hint">
-            Upload the <strong>snowball results CSV</strong> you exported from <strong>Snowball results</strong> (left column), or use <strong>Use snowball results from left</strong> after a run. Criteria are advisory only—manual screening stays authoritative.
+            Upload a <strong>snowball export CSV</strong>, or load the current run with the button below. Criteria are advisory—manual screening stays authoritative.
           </p>
           <label>Triage CSV (snowball export or bibliography-style CSV)
             <input type="file" id="triageCsvFile" accept=".csv,text/csv,text/plain" />
           </label>
           <p id="triageCsvHint" class="hint file-pick-hint" hidden></p>
-          <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Use snowball results from left</button>
+          <button type="button" class="secondary" id="btnLoadSnowballIntoTriage" disabled>Load current snowball results</button>
           <div class="grid triage-batch-grid">
             <label>Start at row (1-based)
               <input type="number" id="triageRowStart" min="1" value="1" />
@@ -128,7 +136,7 @@
             <select id="model"></select>
           </label>
           <button type="button" class="primary" id="btnTriage" disabled>Run triage on batch</button>
-          <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run and click “Use snowball results from left.”</p>
+          <p id="triageGateHint" class="status triage-gate-hint">Load a triage CSV or finish a snowball run, then click “Load current snowball results.”</p>
           <div id="triageStatus" class="triage-status-msg" aria-live="polite"></div>
         </div>
 
@@ -175,6 +183,7 @@
         </div>
       </section>
     </div>
+    </main>
 
     <footer>
       <p>For method reporting: cite OpenAlex usage and document rounds, caps, and that candidates require independent screening.</p>

@@ -29,6 +29,65 @@ If the file has **no** extractable identifiers, snowball is skipped and you keep
 
 Export **CSV** from the UI after the run (and again after triage for AI columns).
 
+## CSV column reference
+
+Both exports are plain CSV (comma-separated). Column order can vary slightly because headers are built from all keys present in the table; the columns below are what you get from a typical snowball + triage run.
+
+**Excel note:** Cells in `ai_verify_in_pdf` that start with `-` (bullet lines) may show `#NAME?` in Excel. The file is fine—open in a text editor, or import the column as **Text**. A future app version may prefix those cells for Excel safety.
+
+### Snowball export (`snowball_YYYY-MM-DD.csv`)
+
+Downloaded with **Download snowball CSV** after import/snowball. One row per candidate work (seeds, snowballed neighbors, and CSV-only imports merged in).
+
+| Column | Meaning | Example |
+|--------|---------|---------|
+| `openalex_id` | OpenAlex work id (`W…`), or a synthetic id when OpenAlex has no record (`doi:…`, `import:N`). | `W4291910381` |
+| `doi` | DOI link or identifier when known (often a full `https://doi.org/…` URL in exports). | `https://doi.org/10.1109/access.2022.3198956` |
+| `title` | Work title from OpenAlex or your uploaded CSV. | `Blockchain and Machine Learning for Fraud Detection: A Privacy-Preserving…` |
+| `year` | Publication year. | `2022` |
+| `cited_by_count` | OpenAlex citation count at fetch time (may be `0` for very new works). | `70` |
+| `landing_url` | Publisher / landing page URL when OpenAlex provides one. | `https://doi.org/10.1109/access.2022.3198956` |
+| `oa_url` | Open-access PDF or repository URL when available; empty if none. | `https://arxiv.org/pdf/1801.10408` |
+| `direction` | How the row entered the corpus: `seed` (starting point), `backward` (reference of a parent), `forward` (cites a parent), or `upload` (CSV row without snowball expansion). | `seed` · `forward` |
+| `parent_openalex_id` | OpenAlex id of the work that led to this row during snowballing; empty for seeds and CSV-only uploads. | `` (seed) · `W1565048244` (found while expanding that seed) |
+| `discovered_round` | Snowball round when the work was first added: `0` = seed or import, `1` = first expansion round, etc. | `0` · `1` |
+
+Example rows (abbreviated):
+
+```csv
+openalex_id,doi,title,year,...,direction,parent_openalex_id,discovered_round
+W4291910381,https://doi.org/10.1109/access.2022.3198956,Blockchain and Machine Learning for Fraud Detection...,2022,...,seed,,0
+W4296978576,https://doi.org/10.1145/3173574.3173951,'It's Reducing a Human Being to a Percentage',2018,...,forward,W1565048244,1
+```
+
+Optional columns (only if present in your table, e.g. abstract copied from your bibliography CSV): `abstract`.
+
+### Triage export (`triage_accum_YYYY-MM-DD.csv`)
+
+Downloaded with **Download triage CSV (accumulated)**. Contains **all snowball columns** for each triaged row, plus **advisory AI fields** from Gemini or Claude. Triage is **not** an inclusion decision—use these columns to prioritize manual screening.
+
+| Column | Meaning | Example |
+|--------|---------|---------|
+| *(snowball columns)* | Same as snowball export above (`openalex_id` through `discovered_round`). | `W4289655771`, `seed`, `0`, … |
+| `ai_relevance_likelihood` | Model’s advisory fit to your pasted criteria: `low`, `medium`, or `high`. | `high` · `low` |
+| `ai_screening_hint` | Short explanation of that relevance band based on **metadata only** (title, optional abstract snippet)—not a final include/exclude. | `The title explicitly mentions 'Blockchain' and 'Privacy-Preserving'…` |
+| `ai_verify_in_pdf` | Checklist for **you** when reading the full paper; empty if the model did not need extra checks. Not text from a PDF the model read. | *(empty)* · `- Check abstract for any mention of blockchain or DLT.` |
+| `ai_uncertainty` | How unsure the model is: `low`, `medium`, or `high` (often higher when only the title was available). | `low` · `high` |
+| `ai_model` | Model id used for that batch. | `gemini-2.5-flash` |
+| `ai_provider` | API provider. | `gemini` |
+| `ai_prompt_version` | Prompt/schema version tag for reproducibility in your protocol. | `triage-v1` |
+
+Example rows (abbreviated):
+
+```csv
+...,ai_relevance_likelihood,ai_screening_hint,ai_verify_in_pdf,ai_uncertainty,ai_model,...
+...,high,The title explicitly mentions 'Blockchain' and 'Privacy-Preserving'…,,low,gemini-2.5-flash,...
+...,low,"The title mentions 'Credit Scoring…over Encrypted Data,' which hints at privacy/security…",- Check abstract for any mention of blockchain or DLT.,medium,gemini-2.5-flash,...
+...,low,"The title ''It's Reducing a Human Being to a Percentage''' is highly generic…","- Check abstract for any mention of blockchain, security, or privacy.",high,gemini-2.5-flash,...
+```
+
+Rows appear in the accumulated file after each **Run triage on batch**; re-running a batch updates the same logical paper (matched by `openalex_id` / DOI / title) in the export.
+
 ## AI triage
 
 Paste your topic and IC/EC / RQ text. Choose **Google Gemini** (default) or **Anthropic Claude**. For Gemini, create a free API key in [Google AI Studio](https://aistudio.google.com/apikey) and paste it in the UI. The key is sent to **your local server only** for that request and is not stored by this app. Respect Google’s and Anthropic’s rate limits and terms.
